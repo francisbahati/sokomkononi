@@ -52,21 +52,21 @@ urlpatterns = [
     path('admin/notifications/<int:pk>/', SystemNotificationViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}), name='notifications-detail'),
     path('admin/notifications/active/', SystemNotificationViewSet.as_view({'get': 'get_active_notifications'}), name='active-notifications'),
 
-    # ---------- NEW: Reports ----------
+    # Reports
     path('admin/reports/overview/', OverviewReportView.as_view(), name='reports-overview'),
     path('admin/reports/revenue-by-month/', RevenueByMonthView.as_view(), name='reports-revenue-month'),
     path('admin/reports/top-listings/', TopListingsView.as_view(), name='reports-top-listings'),
     path('admin/reports/top-regions/', TopRegionsView.as_view(), name='reports-top-regions'),
 
-    # ---------- NEW: Payment Methods (platform-wide) ----------
+    # Payment Methods (platform-wide)
     path('admin/payment-methods/', PlatformPaymentMethodListView.as_view(), name='admin-payment-methods'),
     path('admin/payment-methods/<str:name>/toggle/', PlatformPaymentMethodToggleView.as_view(), name='admin-payment-method-toggle'),
 
-    # ---------- NEW: Regions ----------
+    # Regions
     path('admin/regions/', RegionListView.as_view(), name='admin-regions'),
     path('admin/regions/<str:name>/', RegionDeleteView.as_view(), name='admin-region-delete'),
 
-    # ---------- NEW: Content (Policies) ----------
+    # Content (Policies)
     path('content/policies/', ContentListView.as_view(), name='content-policies'),
     path('content/policies/', ContentUpdateView.as_view(), name='content-policies-update'),
 ]

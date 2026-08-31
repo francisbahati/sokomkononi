@@ -5,8 +5,6 @@ from deals.models import DealRoom
 
 
 class PlatformSettings(models.Model):
-    """Global platform settings that can be changed by admin"""
-
     SETTING_TYPES = [
         ('STRING', 'String'),
         ('INTEGER', 'Integer'),
@@ -201,7 +199,6 @@ class AdminActivity(models.Model):
         ordering = ['-created_at']
 
 
-# ---------- NEW MODELS ----------
 class Region(models.Model):
     name = models.CharField(max_length=100, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)

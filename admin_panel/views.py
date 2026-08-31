@@ -1,4 +1,4 @@
-from rest_framework import generics, status, permissions, viewsets, mixins
+from rest_framework import status, permissions, viewsets, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import action
@@ -10,19 +10,17 @@ from drf_spectacular.utils import extend_schema, OpenApiResponse
 
 from .models import (
     PlatformSettings, CommissionRule, AuditLog, Dispute,
-    SystemNotification, AdminActivity,
-    Region, Content
+    SystemNotification, AdminActivity, Region, Content
 )
 from .serializers import (
     PlatformSettingsSerializer, CommissionRuleSerializer,
     AuditLogSerializer, DisputeSerializer, DisputeUpdateSerializer,
     SystemNotificationSerializer, AdminActivitySerializer,
-    RegionSerializer, ContentSerializer,
-    PlatformPaymentMethodSerializer,
+    RegionSerializer, ContentSerializer, PlatformPaymentMethodSerializer
 )
 from .permissions import IsPlatformAdmin, CanManageDisputes, CanViewAuditLogs
 from accounts.models import User
-from listings.models import Listing, ListingView
+from listings.models import Listing
 from deals.models import DealRoom
 from payments.models import Payment, PaymentMethod, Payout
 
@@ -232,8 +230,8 @@ class SystemNotificationViewSet(viewsets.ModelViewSet):
         return Response(SystemNotificationSerializer(notifications, many=True).data)
 
 
-# ---------- NEW: Reports ----------
-class OverviewReportView(generics.GenericAPIView):
+# ---------- Reports ----------
+class OverviewReportView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
 
     def get(self, request):
@@ -256,7 +254,7 @@ class OverviewReportView(generics.GenericAPIView):
         })
 
 
-class RevenueByMonthView(generics.GenericAPIView):
+class RevenueByMonthView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
 
     def get(self, request):
@@ -281,7 +279,7 @@ class RevenueByMonthView(generics.GenericAPIView):
         return Response(results)
 
 
-class TopListingsView(generics.GenericAPIView):
+class TopListingsView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
 
     def get(self, request):
@@ -291,7 +289,7 @@ class TopListingsView(generics.GenericAPIView):
         ])
 
 
-class TopRegionsView(generics.GenericAPIView):
+class TopRegionsView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
 
     def get(self, request):
@@ -305,26 +303,25 @@ class TopRegionsView(generics.GenericAPIView):
         ])
 
 
-# ---------- NEW: Payment Methods (platform-wide) ----------
+# ---------- Payment Methods (platform-wide) ----------
 class PlatformPaymentMethodListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     serializer_class = PlatformPaymentMethodSerializer
     queryset = PaymentMethod.objects.all()
 
 
-class PlatformPaymentMethodToggleView(generics.GenericAPIView):
+class PlatformPaymentMethodToggleView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
-    serializer_class = PlatformPaymentMethodSerializer
 
     def patch(self, request, name):
         method = get_object_or_404(PaymentMethod, code=name)
         method.is_active = not method.is_active
         method.save()
-        serializer = self.get_serializer(method)
+        serializer = PlatformPaymentMethodSerializer(method)
         return Response(serializer.data)
 
 
-# ---------- NEW: Regions ----------
+# ---------- Regions ----------
 class RegionListView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     queryset = Region.objects.all()
@@ -338,8 +335,8 @@ class RegionDeleteView(generics.DestroyAPIView):
     lookup_field = 'name'
 
 
-# ---------- NEW: Content (Privacy Policy & Terms) ----------
-class ContentListView(generics.GenericAPIView):
+# ---------- Content (Privacy Policy & Terms) ----------
+class ContentListView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
@@ -351,7 +348,7 @@ class ContentListView(generics.GenericAPIView):
         })
 
 
-class ContentUpdateView(generics.GenericAPIView):
+class ContentUpdateView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
 
     def put(self, request):

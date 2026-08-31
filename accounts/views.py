@@ -21,7 +21,6 @@ from .models import User
 User = get_user_model()
 
 
-# ---------- Registration ----------
 class RegisterView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
     permission_classes = [permissions.AllowAny]
@@ -37,7 +36,6 @@ class RegisterView(generics.CreateAPIView):
         }, status=status.HTTP_201_CREATED)
 
 
-# ---------- Login ----------
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -52,7 +50,6 @@ class LoginView(APIView):
         })
 
 
-# ---------- Admin Login ----------
 class AdminLoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -72,7 +69,6 @@ class AdminLoginView(APIView):
         })
 
 
-# ---------- Logout ----------
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -81,7 +77,6 @@ class LogoutView(APIView):
         return Response({'message': 'Logout successful.'})
 
 
-# ---------- Current User ----------
 class MeView(generics.RetrieveAPIView):
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -90,7 +85,6 @@ class MeView(generics.RetrieveAPIView):
         return self.request.user
 
 
-# ---------- Profile Update ----------
 class ProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -99,7 +93,6 @@ class ProfileView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
 
-# ---------- KYC Submission ----------
 class SubmitKYCView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsDalali]
 
@@ -113,7 +106,6 @@ class SubmitKYCView(APIView):
         })
 
 
-# ---------- Password Reset ----------
 class ForgotPasswordView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -158,35 +150,21 @@ class ResetPasswordView(APIView):
         return Response({'message': 'Password reset successful.'})
 
 
-# ---------- Seller Verification Status ----------
 class VerificationStatusView(APIView):
-    """
-    GET /api/auth/verification-status/
-    Returns the current verification status of the authenticated user.
-    Response: { "status": "none" | "pending" | "verified" }
-    """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         user = request.user
-
-        # Only Dalali have verification status; others get 'none'
         if user.role != User.Role.DALALI:
             return Response({'status': 'none'})
-
         if user.is_verified:
             return Response({'status': 'verified'})
-
-        # If KYC documents have been submitted but not yet verified
         if user.id_card_number or user.id_card_photo:
             return Response({'status': 'pending'})
-
         return Response({'status': 'none'})
 
 
-# ---------- ADMIN USER MANAGEMENT ----------
 class AdminUserListView(generics.ListAPIView):
-    """Admin: list all users with filters by role and status."""
     serializer_class = AdminUserListSerializer
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     filter_backends = [DjangoFilterBackend]
@@ -197,7 +175,6 @@ class AdminUserListView(generics.ListAPIView):
 
 
 class AdminUserVerifyView(generics.GenericAPIView):
-    """Admin: verify a user (set verified=True, status=ACTIVE)."""
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     queryset = User.objects.all()
 
@@ -210,7 +187,6 @@ class AdminUserVerifyView(generics.GenericAPIView):
 
 
 class AdminUserSuspendView(generics.GenericAPIView):
-    """Admin: suspend a user."""
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     queryset = User.objects.all()
 
@@ -222,7 +198,6 @@ class AdminUserSuspendView(generics.GenericAPIView):
 
 
 class AdminUserReactivateView(generics.GenericAPIView):
-    """Admin: reactivate a user (set status=ACTIVE)."""
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     queryset = User.objects.all()
 
@@ -234,7 +209,6 @@ class AdminUserReactivateView(generics.GenericAPIView):
 
 
 class AdminUserBlockView(generics.GenericAPIView):
-    """Admin: block a user."""
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     queryset = User.objects.all()
 
@@ -246,7 +220,6 @@ class AdminUserBlockView(generics.GenericAPIView):
 
 
 class AdminVerificationRequestsView(generics.ListAPIView):
-    """Admin: list pending KYC verification requests (Dalali with is_verified=False)."""
     serializer_class = VerificationRequestSerializer
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
 

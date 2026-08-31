@@ -6,7 +6,6 @@ from .models import User
 User = get_user_model()
 
 
-# ---------- Registration ----------
 class UserRegistrationSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source='username', required=True)
     contact = serializers.CharField(required=True)
@@ -48,7 +47,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return user
 
 
-# ---------- Login ----------
 class LoginSerializer(serializers.Serializer):
     contact = serializers.CharField(required=True)
     password = serializers.CharField(required=True, write_only=True)
@@ -75,7 +73,6 @@ class LoginSerializer(serializers.Serializer):
         return attrs
 
 
-# ---------- Profile ----------
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -84,14 +81,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'status', 'is_verified', 'created_at', 'role']
 
 
-# ---------- KYC ----------
 class UserKYCSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id_card_number', 'id_card_photo']
 
 
-# ---------- Password Reset ----------
 class PasswordResetRequestSerializer(serializers.Serializer):
     contact = serializers.EmailField(required=True)
 
@@ -107,11 +102,10 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     uid = serializers.CharField(required=True)
 
 
-# ---------- Admin User Management ----------
 class AdminUserListSerializer(serializers.ModelSerializer):
     listings_count = serializers.IntegerField(source='listings.count', read_only=True)
     purchases_count = serializers.IntegerField(source='deals_as_buyer.count', read_only=True)
-    joined_at = serializers.DateTimeField(source='created_at', read_only=True)  # <-- FIXED
+    joined_at = serializers.DateTimeField(source='created_at', read_only=True)
 
     class Meta:
         model = User
@@ -137,7 +131,6 @@ class AdminUserStatusUpdateSerializer(serializers.ModelSerializer):
         return instance
 
 
-# ---------- Verification Request (pending KYC) ----------
 class VerificationRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = User

@@ -14,7 +14,6 @@ class User(AbstractUser):
         SUSPENDED = 'suspended', 'Suspended'
         BLOCKED = 'blocked', 'Blocked'
 
-    # Fix reverse accessor clash
     groups = models.ManyToManyField(
         'auth.Group',
         related_name='accounts_user_set',
@@ -30,26 +29,16 @@ class User(AbstractUser):
         help_text='Specific permissions for this user.',
     )
 
-    # Core fields – email is optional (nullable)
     email = models.EmailField(unique=True, null=True, blank=True)
     phone_number = models.CharField(max_length=15, unique=True)
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.MTEJA)
-
-    # Account status (four states)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
-
-    # KYC fields
     is_verified = models.BooleanField(default=False)
     id_card_number = models.CharField(max_length=20, blank=True, null=True)
     id_card_photo = models.ImageField(upload_to='kyc/', blank=True, null=True)
-
-    # Legacy is_active will be managed via status; keep it for compatibility
     is_active = models.BooleanField(default=True)
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    # Optional profile fields
     profile_photo = models.ImageField(upload_to='profiles/', blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
 
@@ -65,15 +54,9 @@ class User(AbstractUser):
 
     @classmethod
     def get_by_contact(cls, contact):
-        """
-        Retrieve a user by phone_number or email.
-        Returns None if not found.
-        """
         if not contact:
             return None
-        # Try phone first
         user = cls.objects.filter(phone_number=contact).first()
         if user:
             return user
-        # Fallback to email (if provided)
         return cls.objects.filter(email=contact).first()

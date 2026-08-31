@@ -13,10 +13,8 @@ urlpatterns = [
     path('api/notifications/', include('notifications.urls')),
     path('api/', include('admin_panel.urls')),
 
-    # Swagger
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 
-    # Health check for Dockploy / Render
     path('health/', lambda request: JsonResponse({'status': 'ok'})),
 ]

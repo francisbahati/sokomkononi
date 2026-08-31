@@ -2,8 +2,7 @@ from rest_framework import serializers
 from django.utils import timezone
 from .models import (
     PlatformSettings, CommissionRule, AuditLog, Dispute,
-    SystemNotification, AdminActivity,
-    Region, Content
+    SystemNotification, AdminActivity, Region, Content
 )
 from accounts.serializers import UserProfileSerializer
 
@@ -81,7 +80,6 @@ class AdminActivitySerializer(serializers.ModelSerializer):
                             'target_id', 'details', 'ip_address', 'created_at']
 
 
-# ---------- NEW SERIALIZERS ----------
 class RegionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Region
@@ -98,33 +96,7 @@ class ContentSerializer(serializers.ModelSerializer):
         read_only_fields = ['updated_at', 'updated_by']
 
 
-# PaymentMethod serializer – we'll import from payments app in views
-# But we define a placeholder to avoid circular imports
 class PlatformPaymentMethodSerializer(serializers.Serializer):
     name = serializers.CharField()
     code = serializers.CharField()
     is_active = serializers.BooleanField()
-
-
-# Report serializers (used for validation/documentation)
-class OverviewReportSerializer(serializers.Serializer):
-    active_users = serializers.IntegerField()
-    active_brokers = serializers.IntegerField()
-    transactions_this_week = serializers.IntegerField()
-    total_revenue = serializers.DecimalField(max_digits=15, decimal_places=2)
-
-
-class RevenueByMonthSerializer(serializers.Serializer):
-    month = serializers.CharField()
-    commission = serializers.DecimalField(max_digits=15, decimal_places=2)
-    deals = serializers.IntegerField()
-
-
-class TopListingSerializer(serializers.Serializer):
-    name = serializers.CharField()
-    views = serializers.IntegerField()
-
-
-class TopRegionSerializer(serializers.Serializer):
-    region = serializers.CharField()
-    pct = serializers.FloatField()
