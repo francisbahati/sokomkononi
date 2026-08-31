@@ -1,22 +1,22 @@
 from django.db.models.signals import post_save, post_migrate
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
-from .models import NotificationPreference, NotificationTemplate
+from .models import NotificationPreference, NotificationTemplate, SystemNotificationSetting
 from .services import NotificationService
 
 User = get_user_model()
 
+
 @receiver(post_save, sender=User)
 def create_user_notification_preferences(sender, instance, created, **kwargs):
-    """Create notification preferences for new users"""
     if created:
         NotificationPreference.objects.create(user=instance)
 
+
 @receiver(post_migrate)
 def create_default_notification_templates(sender, **kwargs):
-    """Create default notification templates"""
     from .models import NotificationTemplate
-    
+
     templates = {
         'DEAL_CREATED': {
             'name': 'Deal Created',
@@ -64,7 +64,7 @@ def create_default_notification_templates(sender, **kwargs):
             'body': 'You have a new offer of {{ amount }} for {{ listing_title }}.'
         }
     }
-    
+
     for key, data in templates.items():
         NotificationTemplate.objects.get_or_create(
             notification_type=key,
@@ -74,4 +74,12 @@ def create_default_notification_templates(sender, **kwargs):
                 'body': data['body'],
                 'is_active': True
             }
+        )
+
+    # Create default system notification settings
+    channels = ['email', 'sms', 'push', 'in_app']
+    for channel in channels:
+        SystemNotificationSetting.objects.get_or_create(
+            channel=channel,
+            defaults={'is_enabled': True}
         )

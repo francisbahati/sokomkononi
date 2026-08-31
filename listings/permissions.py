@@ -1,8 +1,10 @@
 from rest_framework import permissions
 
+
 class IsListingOwner(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         return request.user == obj.seller
+
 
 class IsVerifiedDalali(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -10,15 +12,15 @@ class IsVerifiedDalali(permissions.BasePermission):
                 request.user.role == 'DALALI' and
                 request.user.is_verified)
 
+
 class CanManageListing(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         return (request.user.role == 'ADMIN' or
                 request.user == obj.seller)
 
+
 class CanViewListing(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
-        # Anyone can view active and verified listings
         if obj.status in ['ACTIVE', 'VERIFIED']:
             return True
-        # Owner can view their own listings regardless of status
         return request.user == obj.seller

@@ -11,6 +11,8 @@ from .serializers import (
     ListingCreateSerializer,
     ListingUpdateSerializer,
     ListingListSerializer,
+    AdminListingListSerializer,
+    PublicListingDetailSerializer,
     ListingImageSerializer,
     SavedSearchSerializer,
     ListingViewSerializer
@@ -21,13 +23,80 @@ from .permissions import (
     CanManageListing,
     CanViewListing
 )
+from admin_panel.permissions import IsPlatformAdmin  # reuse admin permission
 
+
+# ---------- Admin Category Management ----------
+class AdminCategoryViewSet(viewsets.ModelViewSet):
+    """Admin-only CRUD for categories."""
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def get_queryset(self):
+        # Annotate with listing count for the list view
+        return super().get_queryset().annotate(listing_count=Count('listings'))
+
+
+# ---------- Admin Listing Management ----------
+class AdminListingListView(generics.ListAPIView):
+    """Admin endpoint to list all listings with filters."""
+    serializer_class = AdminListingListSerializer
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['status', 'category']
+    search_fields = ['title', 'description', 'location', 'listing_id']
+
+    def get_queryset(self):
+        return Listing.objects.all().order_by('-created_at')
+
+
+class AdminListingApproveView(generics.GenericAPIView):
+    """Admin endpoint to approve a listing."""
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+    queryset = Listing.objects.all()
+
+    def patch(self, request, pk):
+        listing = self.get_object()
+        listing.status = Listing.Status.VERIFIED
+        listing.verified_by = request.user
+        listing.verified_at = timezone.now()
+        listing.rejection_reason = None  # clear any previous rejection reason
+        listing.save()
+        return Response({'status': 'approved', 'listing': AdminListingListSerializer(listing).data})
+
+
+class AdminListingRejectView(generics.GenericAPIView):
+    """Admin endpoint to reject a listing with a reason."""
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+    queryset = Listing.objects.all()
+
+    def patch(self, request, pk):
+        listing = self.get_object()
+        reason = request.data.get('reason')
+        if not reason:
+            return Response({'error': 'Reason is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        listing.status = Listing.Status.REJECTED
+        listing.rejection_reason = reason
+        listing.save()
+        return Response({'status': 'rejected', 'listing': AdminListingListSerializer(listing).data})
+
+
+class AdminListingDeleteView(generics.DestroyAPIView):
+    """Admin endpoint to delete a listing."""
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+    queryset = Listing.objects.all()
+    serializer_class = AdminListingListSerializer
+
+
+# ---------- Regular Listing Views ----------
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     search_fields = ['name', 'description']
     filter_backends = [filters.SearchFilter]
+
 
 class ListingViewSet(viewsets.ModelViewSet):
     queryset = Listing.objects.all()
@@ -44,23 +113,25 @@ class ListingViewSet(viewsets.ModelViewSet):
             return ListingUpdateSerializer
         elif self.action == 'list':
             return ListingListSerializer
+        elif self.action == 'retrieve':
+            # Use public detail serializer for non-owners
+            if self.request.user.is_authenticated and (self.get_object().seller == self.request.user or self.request.user.role == 'ADMIN'):
+                return ListingSerializer
+            return PublicListingDetailSerializer
         return ListingSerializer
 
     def get_queryset(self):
         queryset = super().get_queryset()
         user = self.request.user
 
-        # Admin sees all listings
         if user.is_authenticated and user.role == 'ADMIN':
             return queryset
 
-        # Authenticated users see active/verified, plus their own (any status)
         if user.is_authenticated:
             return queryset.filter(
                 Q(status__in=['ACTIVE', 'VERIFIED']) | Q(seller=user)
             )
 
-        # Unauthenticated users only see active listings
         return queryset.filter(status='ACTIVE')
 
     def perform_create(self, serializer):
@@ -69,20 +140,31 @@ class ListingViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['patch'])
     def update_status(self, request, pk=None):
         listing = self.get_object()
-        if request.user.role != 'ADMIN':
-            return Response(
-                {'error': 'Only admin can update listing status'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        new_status = request.data.get('status')
-        if not new_status:
-            return Response(
-                {'error': 'Status is required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        listing.status = new_status
-        listing.save()
-        return Response(ListingSerializer(listing).data)
+        # Allow seller to resubmit after rejection
+        if request.user == listing.seller:
+            new_status = request.data.get('status')
+            if new_status == 'PENDING' and listing.status == Listing.Status.REJECTED:
+                listing.status = Listing.Status.PENDING
+                listing.rejection_reason = None
+                listing.save()
+                return Response(ListingSerializer(listing).data)
+            return Response({'error': 'Only admin can change status or only allowed to resubmit if rejected.'},
+                            status=status.HTTP_403_FORBIDDEN)
+        elif request.user.role == 'ADMIN':
+            new_status = request.data.get('status')
+            if new_status in [Listing.Status.VERIFIED, Listing.Status.REJECTED, Listing.Status.ACTIVE]:
+                listing.status = new_status
+                if new_status == Listing.Status.REJECTED:
+                    reason = request.data.get('reason')
+                    if not reason:
+                        return Response({'error': 'Reason required for rejection.'}, status=status.HTTP_400_BAD_REQUEST)
+                    listing.rejection_reason = reason
+                else:
+                    listing.rejection_reason = None
+                listing.save()
+                return Response(ListingSerializer(listing).data)
+            return Response({'error': 'Invalid status.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
 
     @action(detail=True, methods=['post'])
     def add_view(self, request, pk=None):
@@ -95,6 +177,7 @@ class ListingViewSet(viewsets.ModelViewSet):
         )
         listing.increment_view_count()
         return Response({'status': 'view recorded'})
+
 
 class ListingSearchView(generics.ListAPIView):
     serializer_class = ListingListSerializer
@@ -109,7 +192,6 @@ class ListingSearchView(generics.ListAPIView):
                 Q(description__icontains=q) |
                 Q(location__icontains=q)
             )
-        # Other filters: property_type, category, min_price, max_price, etc.
         property_type = self.request.query_params.get('property_type')
         if property_type:
             queryset = queryset.filter(property_type=property_type)
@@ -122,10 +204,10 @@ class ListingSearchView(generics.ListAPIView):
             queryset = queryset.filter(price__gte=min_price)
         if max_price:
             queryset = queryset.filter(price__lte=max_price)
-        # Add more filters as needed (size, bedrooms, bathrooms, location)
         ordering = self.request.query_params.get('ordering', '-created_at')
         queryset = queryset.order_by(ordering)
         return queryset
+
 
 class ListingFilterView(generics.ListAPIView):
     serializer_class = ListingListSerializer
@@ -151,6 +233,7 @@ class ListingFilterView(generics.ListAPIView):
         }
         return Response(data)
 
+
 class FeaturedListingsView(generics.ListAPIView):
     serializer_class = ListingListSerializer
     permission_classes = [permissions.AllowAny]
@@ -158,12 +241,14 @@ class FeaturedListingsView(generics.ListAPIView):
     def get_queryset(self):
         return Listing.objects.filter(status='ACTIVE', is_featured=True)[:10]
 
+
 class MyListingsView(generics.ListAPIView):
     serializer_class = ListingListSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         return Listing.objects.filter(seller=self.request.user)
+
 
 class ListingImageViewSet(viewsets.ModelViewSet):
     queryset = ListingImage.objects.all()
@@ -182,6 +267,7 @@ class ListingImageViewSet(viewsets.ModelViewSet):
         if self.request.user != listing.seller and self.request.user.role != 'ADMIN':
             raise permissions.PermissionDenied("You don't own this listing")
         serializer.save(listing=listing)
+
 
 class SavedSearchViewSet(viewsets.ModelViewSet):
     serializer_class = SavedSearchSerializer

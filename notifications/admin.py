@@ -5,10 +5,12 @@ from .models import (
     UserNotification,
     NotificationTemplate,
     NotificationPreference,
+    SystemNotificationSetting,  # new
     EmailLog,
     SMSLog,
     PushNotificationLog
 )
+
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
@@ -17,7 +19,6 @@ class NotificationAdmin(admin.ModelAdmin):
     search_fields = ('title', 'message')
     list_editable = ('is_active',)
     readonly_fields = ('created_at', 'updated_at')
-    
     fieldsets = (
         ('Notification Details', {
             'fields': ('title', 'message', 'notification_type')
@@ -35,6 +36,7 @@ class NotificationAdmin(admin.ModelAdmin):
         }),
     )
 
+
 @admin.register(UserNotification)
 class UserNotificationAdmin(admin.ModelAdmin):
     list_display = ('user', 'notification', 'is_read', 'created_at')
@@ -43,16 +45,18 @@ class UserNotificationAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at',)
     ordering = ('-created_at',)
 
+
 @admin.register(NotificationTemplate)
 class NotificationTemplateAdmin(admin.ModelAdmin):
     list_display = ('name', 'notification_type', 'subject_preview', 'is_active', 'created_at')
     list_filter = ('notification_type', 'is_active', 'created_at')
     search_fields = ('name', 'subject')
     list_editable = ('is_active',)
-    
+
     def subject_preview(self, obj):
         return obj.subject[:50] + '...' if len(obj.subject) > 50 else obj.subject
     subject_preview.short_description = 'Subject'
+
 
 @admin.register(NotificationPreference)
 class NotificationPreferenceAdmin(admin.ModelAdmin):
@@ -60,6 +64,16 @@ class NotificationPreferenceAdmin(admin.ModelAdmin):
     list_filter = ('email_enabled', 'sms_enabled', 'push_enabled', 'in_app_enabled')
     search_fields = ('user__username',)
     readonly_fields = ('created_at', 'updated_at')
+
+
+# new: SystemNotificationSetting admin
+@admin.register(SystemNotificationSetting)
+class SystemNotificationSettingAdmin(admin.ModelAdmin):
+    list_display = ('channel', 'is_enabled', 'updated_at', 'updated_by')
+    list_filter = ('is_enabled',)
+    list_editable = ('is_enabled',)
+    readonly_fields = ('updated_at',)
+
 
 @admin.register(EmailLog)
 class EmailLogAdmin(admin.ModelAdmin):
@@ -69,6 +83,7 @@ class EmailLogAdmin(admin.ModelAdmin):
     readonly_fields = ('sent_at',)
     ordering = ('-sent_at',)
 
+
 @admin.register(SMSLog)
 class SMSLogAdmin(admin.ModelAdmin):
     list_display = ('phone_number', 'message_preview', 'status', 'sent_at')
@@ -76,10 +91,11 @@ class SMSLogAdmin(admin.ModelAdmin):
     search_fields = ('phone_number',)
     readonly_fields = ('sent_at',)
     ordering = ('-sent_at',)
-    
+
     def message_preview(self, obj):
         return obj.message[:50] + '...' if len(obj.message) > 50 else obj.message
     message_preview.short_description = 'Message'
+
 
 @admin.register(PushNotificationLog)
 class PushNotificationLogAdmin(admin.ModelAdmin):

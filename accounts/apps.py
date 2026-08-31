@@ -6,6 +6,4 @@ class AccountsConfig(AppConfig):
     verbose_name = 'User Accounts'
     
     def ready(self):
-        """Called when the app is ready"""
-        # Import signals here if you have any
         pass

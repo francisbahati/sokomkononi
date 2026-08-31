@@ -2,8 +2,8 @@ from rest_framework import generics, status, permissions, viewsets, mixins
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.db.models import Q
-from django.utils import timezone
-from .models import DealRoom, NegotiationMessage, DealDocument, DealActivity
+from django.shortcuts import get_object_or_404
+from .models import DealRoom, NegotiationMessage, DealDocument, DealActivity, Offer
 from .serializers import (
     DealRoomSerializer,
     DealRoomCreateSerializer,
@@ -12,116 +12,167 @@ from .serializers import (
     NegotiationMessageCreateSerializer,
     DealDocumentSerializer,
     DealActivitySerializer,
-    DealActionSerializer
+    DealActionSerializer,
+    OfferSerializer,
+    OfferCreateSerializer,
 )
 from .permissions import (
     IsDealParticipant,
     IsDealBuyer,
     IsDealSeller,
-    CanUpdateDealStatus
+    CanUpdateDealStatus,
 )
 
+
+# ---------- Admin Deal List ----------
+class AdminDealListView(generics.ListAPIView):
+    """Admin endpoint for listing all deals with status filter."""
+    serializer_class = DealRoomSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Only admin can access
+        if self.request.user.role != 'ADMIN':
+            return DealRoom.objects.none()
+        queryset = DealRoom.objects.all()
+        status = self.request.query_params.get('status')
+        if status:
+            queryset = queryset.filter(status=status)
+        return queryset.order_by('-created_at')
+
+
+# ---------- Offer Views ----------
+class OfferViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing offers."""
+    queryset = Offer.objects.all()
+    permission_classes = [permissions.IsAuthenticated, IsDealParticipant]
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return OfferCreateSerializer
+        return OfferSerializer
+
+    def get_queryset(self):
+        # Filter by deal room if provided in URL
+        deal_pk = self.kwargs.get('deal_pk')
+        if deal_pk:
+            return Offer.objects.filter(deal_room_id=deal_pk)
+        return Offer.objects.none()
+
+    def perform_create(self, serializer):
+        deal_room_id = self.kwargs.get('deal_pk')
+        deal_room = get_object_or_404(DealRoom, id=deal_room_id)
+        serializer.save(deal_room=deal_room, made_by=self.request.user)
+        # Also create a message for the offer
+        NegotiationMessage.objects.create(
+            deal_room=deal_room,
+            sender=self.request.user,
+            message=serializer.validated_data.get('message', 'Offer made'),
+            is_offer=True,
+            offer_amount=serializer.validated_data['amount']
+        )
+        # Update deal room's buyer_offer or seller_counter
+        if self.request.user == deal_room.buyer:
+            deal_room.buyer_offer = serializer.validated_data['amount']
+        elif self.request.user == deal_room.seller:
+            deal_room.seller_counter = serializer.validated_data['amount']
+        deal_room.save()
+
+    @action(detail=True, methods=['post'])
+    def accept(self, request, pk=None):
+        offer = self.get_object()
+        if offer.status != Offer.Status.PENDING:
+            return Response({'error': 'Offer already processed.'}, status=status.HTTP_400_BAD_REQUEST)
+        if request.user not in [offer.deal_room.buyer, offer.deal_room.seller]:
+            return Response({'error': 'You are not a participant.'}, status=status.HTTP_403_FORBIDDEN)
+        offer.accept()
+        return Response(OfferSerializer(offer).data)
+
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        offer = self.get_object()
+        if offer.status != Offer.Status.PENDING:
+            return Response({'error': 'Offer already processed.'}, status=status.HTTP_400_BAD_REQUEST)
+        offer.reject()
+        return Response(OfferSerializer(offer).data)
+
+
+# ---------- DealRoom ViewSet (updated) ----------
 class DealRoomViewSet(viewsets.ModelViewSet):
-    """ViewSet for Deal Rooms"""
     queryset = DealRoom.objects.all()
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get_serializer_class(self):
         if self.action == 'create':
             return DealRoomCreateSerializer
         elif self.action in ['update', 'partial_update', 'update_status']:
             return DealRoomUpdateSerializer
         return DealRoomSerializer
-    
+
     def get_queryset(self):
-        queryset = super().get_queryset()
         user = self.request.user
-        
-        # Users can only see deals they are involved in
-        if user.role != 'ADMIN':
-            queryset = queryset.filter(
-                Q(buyer=user) | Q(seller=user)
-            )
-        
-        # Filter by status
+        if user.role == 'ADMIN':
+            queryset = DealRoom.objects.all()
+        else:
+            queryset = DealRoom.objects.filter(Q(buyer=user) | Q(seller=user))
         status = self.request.query_params.get('status')
         if status:
             queryset = queryset.filter(status=status)
-        
         return queryset
-    
+
     def perform_create(self, serializer):
         deal = serializer.save()
-        # Log the creation
         DealActivity.objects.create(
             deal_room=deal,
             user=self.request.user,
             action='MESSAGE',
             details={'message': 'Deal room created'}
         )
-    
+
     @action(detail=True, methods=['patch'])
     def update_status(self, request, pk=None):
-        """Update deal status"""
         deal = self.get_object()
-        
-        # Check permission
         if request.user.role != 'ADMIN' and request.user not in [deal.buyer, deal.seller]:
-            return Response(
-                {'error': 'You do not have permission to update this deal'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
+            return Response({'error': 'No permission.'}, status=status.HTTP_403_FORBIDDEN)
         serializer = self.get_serializer(deal, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        
-        # Log the status change
         old_status = deal.status
         deal = serializer.save()
-        
         DealActivity.objects.create(
             deal_room=deal,
             user=request.user,
             action='COMPLETE' if deal.status == 'COMPLETED' else 'CANCEL',
             details={'old_status': old_status, 'new_status': deal.status}
         )
-        
         return Response(DealRoomSerializer(deal).data)
 
+
+# ---------- Other Views (unchanged) ----------
 class NegotiationMessageViewSet(viewsets.ModelViewSet):
-    """ViewSet for negotiation messages"""
     queryset = NegotiationMessage.objects.all()
     permission_classes = [permissions.IsAuthenticated, IsDealParticipant]
-    
+
     def get_serializer_class(self):
         if self.action == 'create':
             return NegotiationMessageCreateSerializer
         return NegotiationMessageSerializer
-    
+
     def get_queryset(self):
         deal_pk = self.kwargs.get('pk')
         if deal_pk:
             return NegotiationMessage.objects.filter(deal_room_id=deal_pk)
         return NegotiationMessage.objects.none()
-    
+
     def perform_create(self, serializer):
         deal_room_id = self.kwargs.get('pk')
         deal_room = DealRoom.objects.get(id=deal_room_id)
-        
-        message = serializer.save(
-            deal_room=deal_room,
-            sender=self.request.user
-        )
-        
-        # If this is an offer, update the deal room
+        message = serializer.save(deal_room=deal_room, sender=self.request.user)
         if message.is_offer:
             if self.request.user == deal_room.buyer:
                 deal_room.buyer_offer = message.offer_amount
             elif self.request.user == deal_room.seller:
                 deal_room.seller_counter = message.offer_amount
             deal_room.save()
-        
-        # Log the message
         DealActivity.objects.create(
             deal_room=deal_room,
             user=self.request.user,
@@ -132,27 +183,22 @@ class NegotiationMessageViewSet(viewsets.ModelViewSet):
             }
         )
 
+
 class DealDocumentViewSet(viewsets.ModelViewSet):
-    """ViewSet for deal documents"""
     queryset = DealDocument.objects.all()
     serializer_class = DealDocumentSerializer
     permission_classes = [permissions.IsAuthenticated, IsDealParticipant]
-    
+
     def get_queryset(self):
         deal_pk = self.kwargs.get('pk')
         if deal_pk:
             return DealDocument.objects.filter(deal_room_id=deal_pk)
         return DealDocument.objects.none()
-    
+
     def perform_create(self, serializer):
         deal_room_id = self.kwargs.get('pk')
         deal_room = DealRoom.objects.get(id=deal_room_id)
-        
-        document = serializer.save(
-            deal_room=deal_room,
-            uploaded_by=self.request.user
-        )
-        
+        document = serializer.save(deal_room=deal_room, uploaded_by=self.request.user)
         DealActivity.objects.create(
             deal_room=deal_room,
             user=self.request.user,
@@ -160,58 +206,71 @@ class DealDocumentViewSet(viewsets.ModelViewSet):
             details={'message': f'Document uploaded: {document.title}'}
         )
 
+
 class DealActivityViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
-    """ViewSet for deal activities"""
     queryset = DealActivity.objects.all()
     serializer_class = DealActivitySerializer
     permission_classes = [permissions.IsAuthenticated, IsDealParticipant]
-    
+
     def get_queryset(self):
         deal_pk = self.kwargs.get('pk')
         if deal_pk:
             return DealActivity.objects.filter(deal_room_id=deal_pk)
         return DealActivity.objects.none()
 
+
 class DealActionView(generics.GenericAPIView):
-    """Handle deal actions (accept, reject, counter, complete, cancel, dispute)"""
     permission_classes = [permissions.IsAuthenticated, IsDealParticipant]
     serializer_class = DealActionSerializer
-    
+
     def post(self, request, pk=None):
-        deal = DealRoom.objects.get(id=pk)
+        deal = get_object_or_404(DealRoom, id=pk)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         action = serializer.validated_data['action']
+        offer_id = serializer.validated_data.get('offer_id')
         amount = serializer.validated_data.get('amount')
         message = serializer.validated_data.get('message', '')
-        
-        # Process the action
+
+        # Handle actions
         if action == 'ACCEPT':
-            deal.status = DealRoom.Status.AGREEMENT
-            deal.final_price = deal.buyer_offer or deal.seller_counter or deal.original_price
-            deal.save()
+            # Accept a specific offer
+            offer = get_object_or_404(Offer, id=offer_id, deal_room=deal)
+            if offer.status != Offer.Status.PENDING:
+                return Response({'error': 'Offer already processed.'}, status=status.HTTP_400_BAD_REQUEST)
+            offer.accept()
             DealActivity.objects.create(
                 deal_room=deal,
                 user=request.user,
                 action='ACCEPT',
-                details={'message': message, 'accepted_price': str(deal.final_price)}
+                details={'offer_id': offer.id, 'amount': str(offer.amount), 'message': message}
             )
-            
+            return Response({'status': 'Offer accepted', 'deal': DealRoomSerializer(deal).data})
+
         elif action == 'REJECT':
-            DealActivity.objects.create(
-                deal_room=deal,
-                user=request.user,
-                action='REJECT',
-                details={'message': message}
-            )
-            
+            if offer_id:
+                offer = get_object_or_404(Offer, id=offer_id, deal_room=deal)
+                offer.reject()
+                DealActivity.objects.create(
+                    deal_room=deal,
+                    user=request.user,
+                    action='REJECT',
+                    details={'offer_id': offer.id, 'message': message}
+                )
+                return Response({'status': 'Offer rejected'})
+            else:
+                DealActivity.objects.create(
+                    deal_room=deal,
+                    user=request.user,
+                    action='REJECT',
+                    details={'message': message}
+                )
+                return Response({'status': 'Rejected'})
+
         elif action == 'COUNTER':
             if not amount:
-                return Response(
-                    {'error': 'Amount required for counter offer'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                return Response({'error': 'Amount required for counter offer.'}, status=status.HTTP_400_BAD_REQUEST)
             if request.user == deal.buyer:
                 deal.buyer_offer = amount
             elif request.user == deal.seller:
@@ -223,7 +282,16 @@ class DealActionView(generics.GenericAPIView):
                 action='COUNTER',
                 details={'amount': str(amount), 'message': message}
             )
-            
+            # Also create a new offer as counter
+            Offer.objects.create(
+                deal_room=deal,
+                made_by=request.user,
+                amount=amount,
+                message=message,
+                status=Offer.Status.PENDING
+            )
+            return Response({'status': 'Counter offer made', 'deal': DealRoomSerializer(deal).data})
+
         elif action == 'COMPLETE':
             deal.mark_as_completed()
             DealActivity.objects.create(
@@ -232,7 +300,9 @@ class DealActionView(generics.GenericAPIView):
                 action='COMPLETE',
                 details={'message': message}
             )
-            
+            # The signal will handle payment creation
+            return Response({'status': 'Deal completed', 'deal': DealRoomSerializer(deal).data})
+
         elif action == 'CANCEL':
             deal.mark_as_cancelled()
             DealActivity.objects.create(
@@ -241,7 +311,8 @@ class DealActionView(generics.GenericAPIView):
                 action='CANCEL',
                 details={'message': message}
             )
-            
+            return Response({'status': 'Deal cancelled', 'deal': DealRoomSerializer(deal).data})
+
         elif action == 'DISPUTE':
             deal.mark_as_disputed()
             DealActivity.objects.create(
@@ -250,20 +321,15 @@ class DealActionView(generics.GenericAPIView):
                 action='DISPUTE',
                 details={'message': message}
             )
-        
-        return Response({
-            'status': 'success',
-            'action': action,
-            'deal': DealRoomSerializer(deal).data
-        })
+            return Response({'status': 'Dispute raised', 'deal': DealRoomSerializer(deal).data})
+
+        return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class MyDealsView(generics.ListAPIView):
-    """Get all deals for the current user"""
     serializer_class = DealRoomSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get_queryset(self):
         user = self.request.user
-        return DealRoom.objects.filter(
-            Q(buyer=user) | Q(seller=user)
-        ).order_by('-created_at')
+        return DealRoom.objects.filter(Q(buyer=user) | Q(seller=user)).order_by('-created_at')

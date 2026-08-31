@@ -6,6 +6,7 @@ from django.utils import timezone
 
 User = get_user_model()
 
+
 @receiver(post_save, sender=User)
 def log_user_creation(sender, instance, created, **kwargs):
     """Log user creation"""
@@ -17,6 +18,7 @@ def log_user_creation(sender, instance, created, **kwargs):
             object_id=instance.id,
             data={'username': instance.username, 'role': instance.role}
         )
+
 
 @receiver(post_save, sender=User)
 def log_user_update(sender, instance, created, **kwargs):
