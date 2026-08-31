@@ -10,13 +10,15 @@ from drf_spectacular.utils import extend_schema, OpenApiResponse
 
 from .models import (
     PlatformSettings, CommissionRule, AuditLog, Dispute,
-    SystemNotification, AdminActivity, Region, Content
+    SystemNotification, AdminActivity, Region, Content,
+    SubscriptionPlan
 )
 from .serializers import (
     PlatformSettingsSerializer, CommissionRuleSerializer,
     AuditLogSerializer, DisputeSerializer, DisputeUpdateSerializer,
     SystemNotificationSerializer, AdminActivitySerializer,
-    RegionSerializer, ContentSerializer, PlatformPaymentMethodSerializer
+    RegionSerializer, ContentSerializer, PlatformPaymentMethodSerializer,
+    SubscriptionPlanSerializer, SubscriptionPlanUpdateSerializer
 )
 from .permissions import IsPlatformAdmin, CanManageDisputes, CanViewAuditLogs
 from accounts.models import User
@@ -370,3 +372,41 @@ class ContentUpdateView(APIView):
             obj.save()
             updated.append('terms')
         return Response({'status': 'updated', 'fields': updated})
+
+
+# ---------- NEW: Subscription Plans ----------
+class SubscriptionPlanListView(generics.ListCreateAPIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+    queryset = SubscriptionPlan.objects.all()
+    serializer_class = SubscriptionPlanSerializer
+
+
+class SubscriptionPlanDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+    queryset = SubscriptionPlan.objects.all()
+    serializer_class = SubscriptionPlanSerializer
+
+
+class SubscriptionPlanToggleView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def patch(self, request, name):
+        plan = get_object_or_404(SubscriptionPlan, name=name)
+        plan.is_active = not plan.is_active
+        plan.save()
+        serializer = SubscriptionPlanSerializer(plan)
+        return Response(serializer.data)
+
+
+class SubscriptionPlanSetStartView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+
+    def patch(self, request, name):
+        plan = get_object_or_404(SubscriptionPlan, name=name)
+        starts = request.data.get('starts')
+        if not starts:
+            return Response({'error': 'start date is required'}, status=status.HTTP_400_BAD_REQUEST)
+        plan.starts = starts
+        plan.save()
+        serializer = SubscriptionPlanSerializer(plan)
+        return Response(serializer.data)

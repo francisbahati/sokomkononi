@@ -2,7 +2,8 @@ from rest_framework import serializers
 from django.utils import timezone
 from .models import (
     PlatformSettings, CommissionRule, AuditLog, Dispute,
-    SystemNotification, AdminActivity, Region, Content
+    SystemNotification, AdminActivity, Region, Content,
+    SubscriptionPlan
 )
 from accounts.serializers import UserProfileSerializer
 
@@ -100,3 +101,41 @@ class PlatformPaymentMethodSerializer(serializers.Serializer):
     name = serializers.CharField()
     code = serializers.CharField()
     is_active = serializers.BooleanField()
+
+
+# ---------- NEW: Subscription Plan Serializers ----------
+class SubscriptionPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionPlan
+        fields = ['id', 'name', 'starts', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class SubscriptionPlanUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionPlan
+        fields = ['starts', 'is_active']
+
+
+# Report serializers (used for validation/documentation)
+class OverviewReportSerializer(serializers.Serializer):
+    active_users = serializers.IntegerField()
+    active_brokers = serializers.IntegerField()
+    transactions_this_week = serializers.IntegerField()
+    total_revenue = serializers.DecimalField(max_digits=15, decimal_places=2)
+
+
+class RevenueByMonthSerializer(serializers.Serializer):
+    month = serializers.CharField()
+    commission = serializers.DecimalField(max_digits=15, decimal_places=2)
+    deals = serializers.IntegerField()
+
+
+class TopListingSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    views = serializers.IntegerField()
+
+
+class TopRegionSerializer(serializers.Serializer):
+    region = serializers.CharField()
+    pct = serializers.FloatField()

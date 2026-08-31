@@ -232,3 +232,20 @@ class Content(models.Model):
     class Meta:
         verbose_name = 'Content'
         verbose_name_plural = 'Content'
+
+
+# ---------- NEW: Subscription Plans ----------
+class SubscriptionPlan(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    starts = models.DateTimeField(default=timezone.now)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} ({'Active' if self.is_active else 'Inactive'})"
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Subscription Plan'
+        verbose_name_plural = 'Subscription Plans'

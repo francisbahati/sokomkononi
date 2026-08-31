@@ -18,10 +18,15 @@ from .views import (
     RegionDeleteView,
     ContentListView,
     ContentUpdateView,
+    # Subscription Plans
+    SubscriptionPlanListView,
+    SubscriptionPlanDetailView,
+    SubscriptionPlanToggleView,
+    SubscriptionPlanSetStartView,
 )
 
 urlpatterns = [
-    # Commission Rate (public for authenticated)
+    # Commission Rate
     path('settings/commission-rate/', CommissionRateView.as_view(), name='commission-rate'),
 
     # Dashboard
@@ -69,4 +74,10 @@ urlpatterns = [
     # Content (Policies)
     path('content/policies/', ContentListView.as_view(), name='content-policies'),
     path('content/policies/', ContentUpdateView.as_view(), name='content-policies-update'),
+
+    # ---------- NEW: Subscription Plans ----------
+    path('admin/packages/', SubscriptionPlanListView.as_view(), name='subscription-plans-list'),
+    path('admin/packages/<int:pk>/', SubscriptionPlanDetailView.as_view(), name='subscription-plans-detail'),
+    path('admin/packages/<str:name>/toggle/', SubscriptionPlanToggleView.as_view(), name='subscription-plans-toggle'),
+    path('admin/packages/<str:name>/set-start/', SubscriptionPlanSetStartView.as_view(), name='subscription-plans-set-start'),
 ]
