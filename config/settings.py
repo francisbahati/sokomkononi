@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from decouple import config
 from pathlib import Path
+import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,10 +26,8 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-]
+# Render provides a hostname; also allow local development
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,.onrender.com').split(',')
 
 # Application definition
 INSTALLED_APPS = [
@@ -41,13 +40,13 @@ INSTALLED_APPS = [
 
     'django_filters',
 
-    # THIRD PARTY APPS
+    # Third party
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
     'drf_spectacular',
 
-    # OUR APPS
+    # Our apps
     'accounts',
     'listings',
     'deals',
@@ -58,9 +57,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # WhiteNoise should be near the top
+    'whitenoise.middleware.WhiteNoiseMiddleware',          # WhiteNoise for static files
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',      # CORS should be as high as possible
+    'corsheaders.middleware.CorsMiddleware',               # CORS middleware
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -87,17 +86,24 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# Database
+# Database – use Render's DATABASE_URL environment variable
+# Fallback to local development values from .env
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DATABASE_NAME'),
-        'USER': config('DATABASE_USER'),
-        'PASSWORD': config('DATABASE_PASSWORD'),
-        'HOST': config('DATABASE_HOST'),
-        'PORT': config('DATABASE_PORT'),
-    }
+    'default': dj_database_url.config(
+        default=config('DATABASE_URL', default=''),
+        conn_max_age=600
+    )
 }
+# If no DATABASE_URL is provided, fallback to local PostgreSQL settings
+if not DATABASES['default']:
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': config('DATABASE_NAME', default='sokomkononi'),
+        'USER': config('DATABASE_USER', default='postgres'),
+        'PASSWORD': config('DATABASE_PASSWORD', default=''),
+        'HOST': config('DATABASE_HOST', default='localhost'),
+        'PORT': config('DATABASE_PORT', default='5432'),
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -117,18 +123,21 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'Africa/Dar_es_Salaam'   # Updated to Tanzanian time
+TIME_ZONE = 'Africa/Dar_es_Salaam'
 USE_I18N = True
 USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.2/howto/static-files/
 STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'   # Required for WhiteNoise
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files (user-uploaded content)
+# For production, you should use a cloud storage service (S3, Cloudinary, etc.)
+# For Render free tier, local storage is acceptable but files will be lost on redeploy.
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -139,8 +148,8 @@ AUTH_USER_MODEL = 'accounts.User'
 # ========== REST FRAMEWORK ==========
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.SessionAuthentication',   # Session-based auth
-        # Optional: if you need token-based for API clients, uncomment:
+        'rest_framework.authentication.SessionAuthentication',
+        # If you need token auth for API clients, uncomment:
         # 'rest_framework.authentication.TokenAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
@@ -159,23 +168,22 @@ REST_FRAMEWORK = {
 }
 
 # ========== CORS ==========
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-]
-# Also allow credentials (cookies) to be sent
+# Allow your frontend origin (Render URL) and localhost for development
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000,https://sokomkononi-frontend.onrender.com').split(',')
 CORS_ALLOW_CREDENTIALS = True
 
 # ========== SESSION & CSRF COOKIES ==========
+# Set to True in production with HTTPS, False for dev
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)  # True in production with HTTPS
+SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)
 SESSION_COOKIE_SAMESITE = 'Lax'
-CSRF_COOKIE_HTTPONLY = False   # Allow frontend to read CSRF token if needed
+CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
-CSRF_USE_SESSIONS = True       # Store CSRF token in session instead of a separate cookie
+CSRF_USE_SESSIONS = True
 
-# ========== EMAIL CONFIGURATION (for password reset) ==========
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# ========== EMAIL ==========
+# For password reset and notifications (configure if needed)
+EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
