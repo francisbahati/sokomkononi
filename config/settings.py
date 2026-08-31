@@ -13,7 +13,7 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 
 # Allow all hosts in development, restrict in production via env variable
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,0.0.0.0,.dockploy.app,.onrender.com').split(',')
-
+SECURE_SSL_REDIRECT = False
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
