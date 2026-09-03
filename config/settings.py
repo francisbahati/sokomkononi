@@ -153,13 +153,13 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@sokomkononi.com')
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
 
-# Allauth configuration
+# ---------- Allauth configuration (updated for django-allauth >=0.60) ----------
 SITE_ID = 1
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_EMAIL_VERIFICATION = 'optional'   # we handle via OTP
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_LOGIN_METHODS = {'email'}          # was ACCOUNT_AUTHENTICATION_METHOD
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']   # replaces EMAIL_REQUIRED & USERNAME_REQUIRED
+ACCOUNT_EMAIL_VERIFICATION = 'optional'    # we handle via OTP
 ACCOUNT_UNIQUE_EMAIL = True
+
 SOCIALACCOUNT_EMAIL_VERIFICATION = 'optional'
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_PROVIDERS = {
@@ -181,7 +181,6 @@ AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default='')
 AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='')
 
 # Drf-spectacular
-
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Sokomkononi API',
     'DESCRIPTION': 'API documentation for Sokomkononi marketplace',
@@ -190,6 +189,6 @@ SPECTACULAR_SETTINGS = {
     'ENUM_NAME_OVERRIDES': {
         'StatusEnum': 'accounts.models.User.status',
         'NotificationTypeEnum': 'notifications.models.Notification.notification_type',
-        'CommissionRuleEnum': 'admin_panel.models.CommissionRule',  # if needed
+        'CommissionRuleEnum': 'admin_panel.models.CommissionRule',
     }
 }

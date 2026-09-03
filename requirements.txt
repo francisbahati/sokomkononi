@@ -7,6 +7,7 @@ python-decouple>=3.8
 whitenoise>=6.6
 drf-spectacular>=0.28.0
 Pillow>=10.0
+gunicorn>=21.2.0            # <-- ADDED
 
 # Cloudflare R2 / S3
 django-storages>=1.14
@@ -14,11 +15,11 @@ boto3>=1.34
 
 # OAuth + Allauth
 django-allauth>=0.60
-requests>=2.31          # <-- REQUIRED by allauth Google provider
+requests>=2.31
 
-# PostgreSQL driver (required for production)
+# PostgreSQL driver
 psycopg2-binary>=2.9
 
-# SMS (optional – uncomment if you need SMS)
+# SMS (optional)
 # africastalking>=1.0
 # twilio>=8.0
