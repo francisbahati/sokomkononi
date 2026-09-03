@@ -32,7 +32,7 @@ class User(AbstractUser):
     )
 
     email = models.EmailField(unique=True, blank=True, null=True)
-    phone_number = models.CharField(max_length=15, unique=True)
+    phone_number = models.CharField(max_length=20, unique=True, blank=True, null=True)  # max 20 for +255... or 07...
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.MTEJA)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
     is_verified = models.BooleanField(default=False)
@@ -59,6 +59,7 @@ class User(AbstractUser):
 
     @classmethod
     def get_by_contact(cls, contact):
+        """Get user by either email or phone number."""
         if not contact:
             return None
         user = cls.objects.filter(phone_number=contact).first()
@@ -85,7 +86,7 @@ class OTP(models.Model):
         return not self.is_used and timezone.now() < self.expires_at
 
     def __str__(self):
-        return f"OTP for {self.user.email} - {self.purpose}"
+        return f"OTP for {self.user.email or self.user.phone_number} - {self.purpose}"
 
 
 class UserFavorite(models.Model):

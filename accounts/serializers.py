@@ -2,45 +2,81 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model, authenticate
 from django.contrib.auth.password_validation import validate_password
 from .models import User, OTP, UserFavorite
+import re
 
 User = get_user_model()
 
-# ---------- Existing serializers (unchanged) ----------
+
+def validate_tanzanian_phone_number(value):
+    """Validate Tanzanian phone number format."""
+    if not value:
+        return value
+    # Remove any spaces or dashes
+    value = re.sub(r'[\s\-]', '', value)
+    # Check if it starts with +255 followed by 9 digits (total 13)
+    if re.match(r'^\+255\d{9}$', value):
+        return value
+    # Check if it starts with 0 followed by 9 digits (total 10)
+    if re.match(r'^0\d{9}$', value):
+        return value
+    raise serializers.ValidationError(
+        "Phone number must be a valid Tanzanian number: either +255XXXXXXXXX or 0XXXXXXXXX (10 digits)."
+    )
+
+
 class UserRegistrationSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source='username', required=True)
-    contact = serializers.CharField(required=True)
+    email = serializers.EmailField(required=True)
+    phone_number = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     confirm_password = serializers.CharField(write_only=True, required=True)
 
     class Meta:
         model = User
-        fields = ('name', 'contact', 'password', 'confirm_password', 'role')
+        fields = ('name', 'email', 'phone_number', 'password', 'confirm_password', 'role')
         extra_kwargs = {'role': {'required': True}}
 
-    def validate_contact(self, value):
-        if User.objects.filter(phone_number=value).exists():
-            raise serializers.ValidationError("A user with this phone number already exists.")
+    def validate_email(self, value):
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("A user with this email already exists.")
         return value
 
+    def validate_phone_number(self, value):
+        if not value:
+            return None
+        # Validate Tanzanian phone number
+        validated = validate_tanzanian_phone_number(value)
+        # Check uniqueness
+        if User.objects.filter(phone_number=validated).exists():
+            raise serializers.ValidationError("A user with this phone number already exists.")
+        return validated
+
     def validate(self, attrs):
         if attrs['password'] != attrs['confirm_password']:
             raise serializers.ValidationError({"password": "Passwords do not match."})
+        # Ensure at least one of email or phone_number is provided
+        if not attrs.get('email') and not attrs.get('phone_number'):
+            raise serializers.ValidationError("At least one of email or phone number is required.")
         return attrs
 
     def create(self, validated_data):
         validated_data.pop('confirm_password')
-        contact = validated_data.pop('contact')
+        # Remove None values for phone_number to avoid unique constraint violation
+        phone = validated_data.get('phone_number')
+        if phone is None:
+            validated_data.pop('phone_number', None)
+        # username is provided as 'name'
         username = validated_data.pop('username')
-        email = contact if '@' in contact else None
-        phone_number = contact
+        email = validated_data.pop('email')
+        password = validated_data.pop('password')
+        role = validated_data.get('role', User.Role.MTEJA)
+
         user = User.objects.create_user(
             username=username,
-            phone_number=phone_number,
             email=email,
-            password=validated_data['password'],
-            role=validated_data.get('role', User.Role.MTEJA),
+            phone_number=phone,
+            password=password,
+            role=role,
             status=User.Status.PENDING,
             is_active=True
         )
@@ -140,7 +176,7 @@ class VerificationRequestSerializer(serializers.ModelSerializer):
                             'created_at']
 
 
-# ---------- New OTP serializers ----------
+# ---------- OTP serializers ----------
 class OTPSendSerializer(serializers.Serializer):
     contact = serializers.CharField(required=True)
     purpose = serializers.ChoiceField(choices=OTP.PURPOSE_CHOICES, default='login')
