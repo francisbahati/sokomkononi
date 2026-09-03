@@ -42,13 +42,17 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return value
 
     def validate_email(self, value):
-        if not value:
+        # Convert empty string to None to avoid unique constraint issues
+        if value == '':
             return None
-        if User.objects.filter(email=value).exists():
+        if value and User.objects.filter(email=value).exists():
             raise serializers.ValidationError("A user with this email already exists.")
         return value
 
     def validate_phone_number(self, value):
+        # Convert empty string to None
+        if value == '':
+            return None
         if not value:
             return None
         # Validate Tanzanian phone number
@@ -73,6 +77,12 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         phone_number = validated_data.pop('phone_number', None)
         password = validated_data.pop('password')
         role = validated_data.get('role', User.Role.MTEJA)
+
+        # Ensure empty strings become None (already handled in validation, but just in case)
+        if email == '':
+            email = None
+        if phone_number == '':
+            phone_number = None
 
         user = User.objects.create_user(
             username=username,
