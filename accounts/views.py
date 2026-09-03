@@ -35,14 +35,22 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-        return Response({
-            'user': UserProfileSerializer(user).data,
-            'message': 'Registration successful.'
-        }, status=status.HTTP_201_CREATED)
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            user = serializer.save()
+            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+            return Response({
+                'user': UserProfileSerializer(user).data,
+                'message': 'Registration successful.'
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'error': str(e),
+                'traceback': traceback.format_exc()
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class LoginView(APIView):

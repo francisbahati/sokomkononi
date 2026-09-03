@@ -31,7 +31,7 @@ class User(AbstractUser):
         help_text='Specific permissions for this user.',
     )
 
-    email = models.EmailField(unique=True, null=True, blank=True)
+    email = models.EmailField(unique=True, blank=True, null=True)
     phone_number = models.CharField(max_length=15, unique=True)
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.MTEJA)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
