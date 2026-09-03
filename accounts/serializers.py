@@ -26,7 +26,7 @@ def validate_tanzanian_phone_number(value):
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source='username', required=True)
-    email = serializers.EmailField(required=True)
+    email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
     phone_number = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     confirm_password = serializers.CharField(write_only=True, required=True)
@@ -36,7 +36,14 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         fields = ('name', 'email', 'phone_number', 'password', 'confirm_password', 'role')
         extra_kwargs = {'role': {'required': True}}
 
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("A user with this username already exists.")
+        return value
+
     def validate_email(self, value):
+        if not value:
+            return None
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("A user with this email already exists.")
         return value
@@ -61,20 +68,16 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop('confirm_password')
-        # Remove None values for phone_number to avoid unique constraint violation
-        phone = validated_data.get('phone_number')
-        if phone is None:
-            validated_data.pop('phone_number', None)
-        # username is provided as 'name'
         username = validated_data.pop('username')
-        email = validated_data.pop('email')
+        email = validated_data.pop('email', None)
+        phone_number = validated_data.pop('phone_number', None)
         password = validated_data.pop('password')
         role = validated_data.get('role', User.Role.MTEJA)
 
         user = User.objects.create_user(
             username=username,
             email=email,
-            phone_number=phone,
+            phone_number=phone_number,
             password=password,
             role=role,
             status=User.Status.PENDING,

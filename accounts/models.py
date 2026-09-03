@@ -32,7 +32,7 @@ class User(AbstractUser):
     )
 
     email = models.EmailField(unique=True, blank=True, null=True)
-    phone_number = models.CharField(max_length=20, unique=True, blank=True, null=True)  # max 20 for +255... or 07...
+    phone_number = models.CharField(max_length=20, unique=True, blank=True, null=True)
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.MTEJA)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
     is_verified = models.BooleanField(default=False)
