@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'drf_spectacular',
+    'drf_spectacular_sidecar',  # ← serves Swagger UI assets locally
 
     # Allauth
     'allauth',
@@ -50,7 +51,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',  # Allauth middleware
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -65,7 +66,6 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                # Allauth
                 'allauth.account.context_processors.account',
             ],
         },
@@ -155,9 +155,9 @@ FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
 
 # ---------- Allauth configuration ----------
 SITE_ID = 1
-ACCOUNT_LOGIN_METHODS = {'email'}          # was ACCOUNT_AUTHENTICATION_METHOD
-ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']   # replaces EMAIL_REQUIRED & USERNAME_REQUIRED
-ACCOUNT_EMAIL_VERIFICATION = 'optional'    # we handle via OTP
+ACCOUNT_LOGIN_METHODS = {'email'}
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
+ACCOUNT_EMAIL_VERIFICATION = 'optional'
 ACCOUNT_UNIQUE_EMAIL = True
 
 SOCIALACCOUNT_EMAIL_VERIFICATION = 'optional'
@@ -181,8 +181,7 @@ AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default='')
 AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='')
 
 # ---------- Drf-spectacular (Swagger) ----------
-# Best option: read SERVER_URL from environment, with a fallback.
-# Set SERVER_URL in Dokploy to your production domain (or set to http://localhost:8000 for local dev).
+# Read SERVER_URL from environment, fallback to production domain
 SERVER_URL = config('SERVER_URL', default='https://simumkononiserver-9yxe7h-4d4512-169-58-29-241.sslip.io')
 
 SPECTACULAR_SETTINGS = {
@@ -193,6 +192,10 @@ SPECTACULAR_SETTINGS = {
     'SERVERS': [
         {'url': SERVER_URL, 'description': 'Current Server'},
     ],
+    # Use sidecar for Swagger UI assets
+    'SWAGGER_UI_DIST': 'SIDECAR',
+    'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
+    'REDOC_DIST': 'SIDECAR',
     'ENUM_NAME_OVERRIDES': {
         'StatusEnum': 'accounts.models.User.status',
         'NotificationTypeEnum': 'notifications.models.Notification.notification_type',
