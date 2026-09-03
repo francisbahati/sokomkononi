@@ -19,7 +19,7 @@ from .serializers import (
     CommissionSerializer, TransactionSerializer, EscrowSerializer,
     EscrowUpdateSerializer, RefundSerializer, RefundCreateSerializer, PaymentLogSerializer
 )
-from admin_panel.serializers import CommissionRuleSerializer  # imported from admin_panel to avoid duplicate
+from admin_panel.serializers import CommissionRuleSerializer
 from .permissions import (
     IsPaymentParticipant, IsPaymentBuyer, IsPaymentSeller,
     CanProcessPayment
@@ -72,7 +72,6 @@ class SellerPayoutListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Guard for schema generation
         if getattr(self, 'swagger_fake_view', False):
             return Payout.objects.none()
         return Payout.objects.filter(seller=self.request.user).order_by('-created_at')

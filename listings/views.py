@@ -246,7 +246,6 @@ class MyListingsView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Guard for schema generation
         if getattr(self, 'swagger_fake_view', False):
             return Listing.objects.none()
         return Listing.objects.filter(seller=self.request.user)
@@ -276,7 +275,6 @@ class SavedSearchViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Guard for schema generation
         if getattr(self, 'swagger_fake_view', False):
             return SavedSearch.objects.none()
         return SavedSearch.objects.filter(user=self.request.user)

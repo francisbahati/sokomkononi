@@ -18,19 +18,16 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',
-
     'django_filters',
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
     'drf_spectacular',
-    'drf_spectacular_sidecar',  # serves Swagger UI assets locally
-
+    'drf_spectacular_sidecar',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
-
     'accounts',
     'listings',
     'deals',
@@ -144,7 +141,6 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@sokomkononi.com')
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
 
-# Allauth
 SITE_ID = 1
 ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
@@ -167,7 +163,6 @@ OTP_LENGTH = 6
 AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default='')
 AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='')
 
-# Drf-spectacular
 SERVER_URL = config('SERVER_URL', default='https://simumkononiserver-9yxe7h-4d4512-169-58-29-241.sslip.io')
 
 SPECTACULAR_SETTINGS = {
@@ -181,5 +176,4 @@ SPECTACULAR_SETTINGS = {
     'SWAGGER_UI_DIST': 'SIDECAR',
     'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
     'REDOC_DIST': 'SIDECAR',
-    # ENUM_NAME_OVERRIDES removed to fix schema generation error
 }

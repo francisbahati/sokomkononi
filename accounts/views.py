@@ -55,6 +55,7 @@ class RegisterView(generics.CreateAPIView):
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = EmptySerializer
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data, context={'request': request})
@@ -69,6 +70,7 @@ class LoginView(APIView):
 
 class AdminLoginView(APIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = EmptySerializer
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data, context={'request': request})
@@ -88,6 +90,7 @@ class AdminLoginView(APIView):
 
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = EmptySerializer
 
     def post(self, request):
         logout(request)
@@ -112,6 +115,7 @@ class ProfileView(generics.RetrieveUpdateAPIView):
 
 class SubmitKYCView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsDalali]
+    serializer_class = EmptySerializer
 
     def post(self, request):
         serializer = UserKYCSerializer(request.user, data=request.data, partial=True)
@@ -125,6 +129,7 @@ class SubmitKYCView(APIView):
 
 class ForgotPasswordView(APIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = EmptySerializer
 
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
@@ -146,6 +151,7 @@ class ForgotPasswordView(APIView):
 
 class ResetPasswordView(APIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = EmptySerializer
 
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
@@ -169,6 +175,7 @@ class ResetPasswordView(APIView):
 
 class VerificationStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = EmptySerializer
 
     def get(self, request):
         user = request.user
@@ -252,6 +259,7 @@ class AdminVerificationRequestsView(generics.ListAPIView):
 # ---------- OTP Views ----------
 class RequestOTPView(APIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = EmptySerializer
 
     def post(self, request):
         serializer = OTPSendSerializer(data=request.data)
@@ -270,6 +278,7 @@ class RequestOTPView(APIView):
 
 class VerifyOTPView(APIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = EmptySerializer
 
     def post(self, request):
         serializer = OTPVerifySerializer(data=request.data)
@@ -308,6 +317,7 @@ class VerifyOTPView(APIView):
 # ---------- Social Login Callback ----------
 class SocialLoginCallbackView(APIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = EmptySerializer
 
     def get(self, request):
         if request.user.is_authenticated:
@@ -322,6 +332,7 @@ class SocialLoginCallbackView(APIView):
 # ---------- Favorites ----------
 class FavoriteView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsMteja]
+    serializer_class = EmptySerializer
 
     def get(self, request):
         favorites = UserFavorite.objects.filter(user=request.user)

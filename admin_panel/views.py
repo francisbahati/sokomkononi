@@ -1,4 +1,4 @@
-from rest_framework import status, permissions, viewsets, generics
+from rest_framework import status, permissions, viewsets, generics, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import action
@@ -27,9 +27,15 @@ from deals.models import DealRoom
 from payments.models import Payment, PaymentMethod, Payout
 
 
+# ---------- Dummy serializer for schema ----------
+class EmptySerializer(serializers.Serializer):
+    pass
+
+
 # ---------- Commission Rate ----------
 class CommissionRateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = EmptySerializer
 
     def get(self, request):
         rate = PlatformSettings.get_commission_rate()
@@ -54,6 +60,7 @@ class CommissionRateView(APIView):
 # ---------- Dashboard Stats ----------
 class AdminDashboardStatsView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+    serializer_class = EmptySerializer
 
     @extend_schema(responses={200: OpenApiResponse(description="Dashboard statistics")})
     def get(self, request):
@@ -110,6 +117,7 @@ class AdminDashboardStatsView(APIView):
 # ---------- Metrics ----------
 class AdminMetricsView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+    serializer_class = EmptySerializer
 
     @extend_schema(responses={200: OpenApiResponse(description="Metrics for charts")})
     def get(self, request):
@@ -235,6 +243,7 @@ class SystemNotificationViewSet(viewsets.ModelViewSet):
 # ---------- Reports ----------
 class OverviewReportView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+    serializer_class = EmptySerializer
 
     def get(self, request):
         now = timezone.now()
@@ -258,6 +267,7 @@ class OverviewReportView(APIView):
 
 class RevenueByMonthView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+    serializer_class = EmptySerializer
 
     def get(self, request):
         today = timezone.now()
@@ -283,6 +293,7 @@ class RevenueByMonthView(APIView):
 
 class TopListingsView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+    serializer_class = EmptySerializer
 
     def get(self, request):
         listings = Listing.objects.order_by('-view_count')[:10]
@@ -293,6 +304,7 @@ class TopListingsView(APIView):
 
 class TopRegionsView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+    serializer_class = EmptySerializer
 
     def get(self, request):
         total = Listing.objects.count()
@@ -305,7 +317,7 @@ class TopRegionsView(APIView):
         ])
 
 
-# ---------- Payment Methods (platform-wide) ----------
+# ---------- Payment Methods ----------
 class PlatformPaymentMethodListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     serializer_class = PlatformPaymentMethodSerializer
@@ -314,6 +326,7 @@ class PlatformPaymentMethodListView(generics.ListAPIView):
 
 class PlatformPaymentMethodToggleView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+    serializer_class = EmptySerializer
 
     def patch(self, request, name):
         method = get_object_or_404(PaymentMethod, code=name)
@@ -337,9 +350,10 @@ class RegionDeleteView(generics.DestroyAPIView):
     lookup_field = 'name'
 
 
-# ---------- Content (Privacy Policy & Terms) ----------
+# ---------- Content ----------
 class ContentListView(APIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = EmptySerializer
 
     def get(self, request):
         privacy = Content.objects.filter(content_type='privacy_policy').first()
@@ -352,6 +366,7 @@ class ContentListView(APIView):
 
 class ContentUpdateView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+    serializer_class = EmptySerializer
 
     def put(self, request):
         privacy = request.data.get('privacy_policy')
@@ -374,7 +389,7 @@ class ContentUpdateView(APIView):
         return Response({'status': 'updated', 'fields': updated})
 
 
-# ---------- NEW: Subscription Plans ----------
+# ---------- Subscription Plans ----------
 class SubscriptionPlanListView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     queryset = SubscriptionPlan.objects.all()
@@ -389,6 +404,7 @@ class SubscriptionPlanDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class SubscriptionPlanToggleView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+    serializer_class = EmptySerializer
 
     def patch(self, request, name):
         plan = get_object_or_404(SubscriptionPlan, name=name)
@@ -400,6 +416,7 @@ class SubscriptionPlanToggleView(APIView):
 
 class SubscriptionPlanSetStartView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+    serializer_class = EmptySerializer
 
     def patch(self, request, name):
         plan = get_object_or_404(SubscriptionPlan, name=name)
