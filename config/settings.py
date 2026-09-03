@@ -153,7 +153,7 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@sokomkononi.com')
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
 
-# ---------- Allauth configuration (updated for django-allauth >=0.60) ----------
+# ---------- Allauth configuration ----------
 SITE_ID = 1
 ACCOUNT_LOGIN_METHODS = {'email'}          # was ACCOUNT_AUTHENTICATION_METHOD
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']   # replaces EMAIL_REQUIRED & USERNAME_REQUIRED
@@ -180,12 +180,19 @@ OTP_LENGTH = 6
 AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default='')
 AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='')
 
-# Drf-spectacular
+# ---------- Drf-spectacular (Swagger) ----------
+# Best option: read SERVER_URL from environment, with a fallback.
+# Set SERVER_URL in Dokploy to your production domain (or set to http://localhost:8000 for local dev).
+SERVER_URL = config('SERVER_URL', default='https://simumkononiserver-9yxe7h-4d4512-169-58-29-241.sslip.io')
+
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Sokomkononi API',
     'DESCRIPTION': 'API documentation for Sokomkononi marketplace',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+    'SERVERS': [
+        {'url': SERVER_URL, 'description': 'Current Server'},
+    ],
     'ENUM_NAME_OVERRIDES': {
         'StatusEnum': 'accounts.models.User.status',
         'NotificationTypeEnum': 'notifications.models.Notification.notification_type',
