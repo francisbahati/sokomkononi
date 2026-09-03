@@ -1,6 +1,12 @@
 FROM python:3.12-slim
 
-# Install system dependencies (required for psycopg2 and other packages)
+# Environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV DJANGO_SETTINGS_MODULE=config.settings
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install system dependencies for PostgreSQL and Pillow
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
@@ -9,16 +15,18 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
+# Copy the rest of the application
 COPY . .
 
-# Collect static files – now works because we fixed the import
+# Collect static files at build time (optional, but good for production)
 RUN python manage.py collectstatic --no-input
 
-# Expose port 3000 (adjust if needed)
+# Expose the port your app listens on (3000 matches your command)
 EXPOSE 3000
 
-# Start the server with gunicorn (or your chosen command)
-CMD ["gunicorn", "--bind", "0.0.0.0:3000", "config.wsgi:application"]
+# Run migrations, collect static (again, to catch any new files), then start Gunicorn
+CMD ["sh", "-c", "python manage.py migrate --no-input && python manage.py collectstatic --no-input && gunicorn config.wsgi:application --bind 0.0.0.0:3000"]
