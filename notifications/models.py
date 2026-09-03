@@ -1,7 +1,8 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
-from django.contrib.postgres.fields import JSONField
+# Changed: use generic JSONField from django.db.models (no PostgreSQL dependency)
+from django.db.models import JSONField
 
 
 class Notification(models.Model):
@@ -20,7 +21,7 @@ class Notification(models.Model):
     notification_type = models.CharField(max_length=20, choices=NotificationType.choices, default=NotificationType.GENERAL)
     is_active = models.BooleanField(default=True)
 
-    target_roles = models.JSONField(default=list, blank=True, help_text="List of user roles to target")
+    target_roles = JSONField(default=list, blank=True, help_text="List of user roles to target")
     target_users = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name='targeted_notifications')
 
     sent_at = models.DateTimeField(blank=True, null=True)
@@ -112,13 +113,11 @@ class NotificationTemplate(models.Model):
 class NotificationPreference(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notification_preferences')
 
-    # Channels
     email_enabled = models.BooleanField(default=True)
     sms_enabled = models.BooleanField(default=False)
     push_enabled = models.BooleanField(default=True)
     in_app_enabled = models.BooleanField(default=True)
 
-    # Specific types
     deal_updates = models.BooleanField(default=True)
     payment_updates = models.BooleanField(default=True)
     listing_updates = models.BooleanField(default=True)
@@ -132,7 +131,6 @@ class NotificationPreference(models.Model):
         return f"Preferences for {self.user.username}"
 
 
-# ---------- NEW: System-wide notification settings ----------
 class SystemNotificationSetting(models.Model):
     class Channel(models.TextChoices):
         EMAIL = 'email', 'Email'
