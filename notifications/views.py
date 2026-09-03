@@ -102,6 +102,9 @@ class MyNotificationsView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        # Guard for schema generation
+        if getattr(self, 'swagger_fake_view', False):
+            return UserNotification.objects.none()
         return UserNotification.objects.filter(user=self.request.user).order_by('-created_at')
 
 

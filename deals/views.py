@@ -1,4 +1,4 @@
-from rest_framework import generics, status, permissions, viewsets, mixins
+from rest_framework import generics, status, permissions, viewsets, mixins, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.db.models import Q
@@ -24,6 +24,11 @@ from .permissions import (
 )
 
 
+# ---------- Dummy serializer for schema ----------
+class EmptySerializer(serializers.Serializer):
+    pass
+
+
 # ---------- Admin Deal List ----------
 class AdminDealListView(generics.ListAPIView):
     """Admin endpoint for listing all deals with status filter."""
@@ -31,6 +36,9 @@ class AdminDealListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        # Guard for schema generation
+        if getattr(self, 'swagger_fake_view', False):
+            return DealRoom.objects.none()
         # Only admin can access
         if self.request.user.role != 'ADMIN':
             return DealRoom.objects.none()
@@ -97,7 +105,7 @@ class OfferViewSet(viewsets.ModelViewSet):
         return Response(OfferSerializer(offer).data)
 
 
-# ---------- DealRoom ViewSet (updated) ----------
+# ---------- DealRoom ViewSet ----------
 class DealRoomViewSet(viewsets.ModelViewSet):
     queryset = DealRoom.objects.all()
     permission_classes = [permissions.IsAuthenticated]
@@ -147,7 +155,7 @@ class DealRoomViewSet(viewsets.ModelViewSet):
         return Response(DealRoomSerializer(deal).data)
 
 
-# ---------- Other Views (unchanged) ----------
+# ---------- Other Views ----------
 class NegotiationMessageViewSet(viewsets.ModelViewSet):
     queryset = NegotiationMessage.objects.all()
     permission_classes = [permissions.IsAuthenticated, IsDealParticipant]
@@ -235,7 +243,6 @@ class DealActionView(generics.GenericAPIView):
 
         # Handle actions
         if action == 'ACCEPT':
-            # Accept a specific offer
             offer = get_object_or_404(Offer, id=offer_id, deal_room=deal)
             if offer.status != Offer.Status.PENDING:
                 return Response({'error': 'Offer already processed.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -282,7 +289,6 @@ class DealActionView(generics.GenericAPIView):
                 action='COUNTER',
                 details={'amount': str(amount), 'message': message}
             )
-            # Also create a new offer as counter
             Offer.objects.create(
                 deal_room=deal,
                 made_by=request.user,
@@ -300,7 +306,6 @@ class DealActionView(generics.GenericAPIView):
                 action='COMPLETE',
                 details={'message': message}
             )
-            # The signal will handle payment creation
             return Response({'status': 'Deal completed', 'deal': DealRoomSerializer(deal).data})
 
         elif action == 'CANCEL':
@@ -331,5 +336,8 @@ class MyDealsView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        # Guard for schema generation
+        if getattr(self, 'swagger_fake_view', False):
+            return DealRoom.objects.none()
         user = self.request.user
         return DealRoom.objects.filter(Q(buyer=user) | Q(seller=user)).order_by('-created_at')

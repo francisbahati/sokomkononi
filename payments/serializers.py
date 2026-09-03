@@ -6,7 +6,6 @@ from .models import (
 )
 from deals.serializers import DealRoomSerializer
 from accounts.serializers import UserProfileSerializer
-from admin_panel.serializers import CommissionRuleSerializer  # import from admin_panel
 
 
 class PaymentMethodSerializer(serializers.ModelSerializer):
