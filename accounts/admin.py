@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.utils.html import format_html
-from .models import User
+from .models import User, OTP, UserFavorite
 
 class CustomUserAdmin(UserAdmin):
     list_display = (
@@ -25,7 +25,7 @@ class CustomUserAdmin(UserAdmin):
             )
         }),
         ('Account Status', {
-            'fields': ('status', 'is_active', 'is_verified')
+            'fields': ('status', 'is_active', 'is_verified', 'email_verified')
         }),
         ('KYC Information', {
             'fields': ('id_card_number', 'id_card_photo'),
@@ -67,5 +67,21 @@ class CustomUserAdmin(UserAdmin):
         updated = queryset.update(status=User.Status.SUSPENDED)
         self.message_user(request, f'{updated} users suspended.')
     suspend_users.short_description = 'Suspend selected users'
+
+
+@admin.register(OTP)
+class OTPAdmin(admin.ModelAdmin):
+    list_display = ('user', 'code', 'purpose', 'created_at', 'expires_at', 'is_used')
+    list_filter = ('purpose', 'is_used')
+    search_fields = ('user__email', 'user__phone_number', 'code')
+    readonly_fields = ('created_at',)
+
+
+@admin.register(UserFavorite)
+class UserFavoriteAdmin(admin.ModelAdmin):
+    list_display = ('user', 'listing', 'created_at')
+    search_fields = ('user__username', 'listing__title')
+    list_filter = ('created_at',)
+
 
 admin.site.register(User, CustomUserAdmin)

@@ -1,4 +1,4 @@
-from rest_framework import generics, status, permissions, viewsets, mixins
+from rest_framework import generics, status, permissions, viewsets, mixins, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.db.models import Q
@@ -8,7 +8,7 @@ from .models import (
     UserNotification,
     NotificationTemplate,
     NotificationPreference,
-    SystemNotificationSetting,  # new
+    SystemNotificationSetting,
     EmailLog,
     SMSLog,
     PushNotificationLog
@@ -20,7 +20,7 @@ from .serializers import (
     UserNotificationUpdateSerializer,
     NotificationTemplateSerializer,
     NotificationPreferenceSerializer,
-    SystemNotificationSettingSerializer,  # new
+    SystemNotificationSettingSerializer,
     EmailLogSerializer,
     SMSLogSerializer,
     PushNotificationLogSerializer
@@ -28,17 +28,19 @@ from .serializers import (
 from .permissions import IsNotificationOwner, CanManageNotifications
 from .services import NotificationService
 
+# ---------- Dummy serializer for schema ----------
+class EmptySerializer(serializers.Serializer):
+    pass
+
 
 # ---------- Admin System Notification Settings ----------
 class SystemNotificationSettingListView(generics.ListAPIView):
-    """Admin: list all system notification settings."""
     queryset = SystemNotificationSetting.objects.all()
     serializer_class = SystemNotificationSettingSerializer
     permission_classes = [permissions.IsAuthenticated, CanManageNotifications]
 
 
 class SystemNotificationSettingToggleView(generics.GenericAPIView):
-    """Admin: toggle a specific notification channel."""
     permission_classes = [permissions.IsAuthenticated, CanManageNotifications]
     serializer_class = SystemNotificationSettingSerializer
 
@@ -48,7 +50,6 @@ class SystemNotificationSettingToggleView(generics.GenericAPIView):
         except SystemNotificationSetting.DoesNotExist:
             return Response({'error': 'Setting not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Toggle the enabled status
         setting.is_enabled = not setting.is_enabled
         setting.updated_by = request.user
         setting.save()
@@ -56,7 +57,7 @@ class SystemNotificationSettingToggleView(generics.GenericAPIView):
         return Response(serializer.data)
 
 
-# ---------- Existing Views ----------
+# ---------- Notification Views ----------
 class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
@@ -106,6 +107,7 @@ class MyNotificationsView(generics.ListAPIView):
 
 class UnreadCountView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = EmptySerializer
 
     def get(self, request):
         count = UserNotification.objects.filter(user=request.user, is_read=False).count()
@@ -114,6 +116,7 @@ class UnreadCountView(generics.GenericAPIView):
 
 class MarkAllReadView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = EmptySerializer
 
     def post(self, request):
         UserNotification.objects.filter(user=request.user, is_read=False).update(

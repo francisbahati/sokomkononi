@@ -1,4 +1,4 @@
-from rest_framework import generics, status, permissions, viewsets, filters
+from rest_framework import generics, status, permissions, viewsets, filters, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.db.models import Q, Sum, Count
@@ -6,7 +6,7 @@ from django.utils import timezone
 from .models import (
     Payment, PaymentMethod, Commission, CommissionRule,
     Transaction, Escrow, Refund, PaymentLog,
-    Payout, PayoutAccount  # new
+    Payout, PayoutAccount
 )
 from .serializers import (
     PaymentSerializer, PaymentCreateSerializer, PaymentUpdateSerializer,
@@ -16,20 +16,23 @@ from .serializers import (
     AdminPayoutListSerializer,
     PayoutSerializer, PayoutCreateSerializer,
     PayoutAccountSerializer, PayoutAccountUpdateSerializer,
-    CommissionSerializer, CommissionRuleSerializer,
-    TransactionSerializer, EscrowSerializer, EscrowUpdateSerializer,
-    RefundSerializer, RefundCreateSerializer, PaymentLogSerializer
+    CommissionSerializer, TransactionSerializer, EscrowSerializer,
+    EscrowUpdateSerializer, RefundSerializer, RefundCreateSerializer, PaymentLogSerializer
 )
 from .permissions import (
     IsPaymentParticipant, IsPaymentBuyer, IsPaymentSeller,
     CanProcessPayment
 )
-from admin_panel.permissions import IsPlatformAdmin  # reuse admin permission
+from admin_panel.permissions import IsPlatformAdmin
+from admin_panel.serializers import CommissionRuleSerializer  # import from admin_panel to avoid duplicate
+
+# ---------- Dummy serializer for schema ----------
+class EmptySerializer(serializers.Serializer):
+    pass
 
 
 # ---------- Admin Views ----------
 class AdminTransactionListView(generics.ListAPIView):
-    """Admin: list all payments (transactions) with filters."""
     serializer_class = AdminTransactionSerializer
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     filter_backends = [filters.SearchFilter]
@@ -44,7 +47,6 @@ class AdminTransactionListView(generics.ListAPIView):
 
 
 class AdminFeeListView(generics.ListAPIView):
-    """Admin: list all commissions (fees) with status."""
     serializer_class = AdminFeeSerializer
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
 
@@ -53,7 +55,6 @@ class AdminFeeListView(generics.ListAPIView):
 
 
 class AdminPayoutListView(generics.ListAPIView):
-    """Admin: list all payouts with filters."""
     serializer_class = AdminPayoutListSerializer
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
 
@@ -67,7 +68,6 @@ class AdminPayoutListView(generics.ListAPIView):
 
 # ---------- Seller Views ----------
 class SellerPayoutListView(generics.ListAPIView):
-    """Seller: list their own payouts."""
     serializer_class = PayoutSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -76,7 +76,6 @@ class SellerPayoutListView(generics.ListAPIView):
 
 
 class SellerPayoutAccountView(generics.RetrieveUpdateAPIView):
-    """Seller: get/update their payout account."""
     serializer_class = PayoutAccountSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -90,7 +89,7 @@ class SellerPayoutAccountView(generics.RetrieveUpdateAPIView):
         return PayoutAccountSerializer
 
 
-# ---------- Existing Views (unchanged) ----------
+# ---------- Payment Views ----------
 class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all()
     permission_classes = [permissions.IsAuthenticated]
@@ -283,14 +282,15 @@ class RefundViewSet(viewsets.ModelViewSet):
 
 class PaymentWebhookView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = EmptySerializer
 
     def post(self, request):
-        # Placeholder for payment provider webhook
         return Response({'status': 'received'})
 
 
 class PaymentStatisticsView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated, CanProcessPayment]
+    serializer_class = EmptySerializer
 
     def get(self, request):
         total_revenue = Payment.objects.filter(status='COMPLETED').aggregate(total=Sum('commission'))['total'] or 0

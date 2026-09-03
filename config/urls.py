@@ -6,6 +6,10 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 urlpatterns = [
     path('admin/', admin.site.urls),
 
+    # Allauth URLs (Google OAuth2)
+    path('auth/', include('allauth.urls')),
+
+    # API endpoints
     path('api/auth/', include('accounts.urls')),
     path('api/listings/', include('listings.urls')),
     path('api/deals/', include('deals.urls')),
@@ -13,8 +17,10 @@ urlpatterns = [
     path('api/notifications/', include('notifications.urls')),
     path('api/', include('admin_panel.urls')),
 
+    # Schema
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 
+    # Health check
     path('health/', lambda request: JsonResponse({'status': 'ok'})),
 ]

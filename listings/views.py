@@ -1,4 +1,4 @@
-from rest_framework import generics, status, permissions, viewsets, filters
+from rest_framework import generics, status, permissions, viewsets, filters, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.db import models
@@ -23,24 +23,26 @@ from .permissions import (
     CanManageListing,
     CanViewListing
 )
-from admin_panel.permissions import IsPlatformAdmin  # reuse admin permission
+from admin_panel.permissions import IsPlatformAdmin
+from django.utils import timezone
+
+# ---------- Dummy serializer for schema ----------
+class EmptySerializer(serializers.Serializer):
+    pass
 
 
 # ---------- Admin Category Management ----------
 class AdminCategoryViewSet(viewsets.ModelViewSet):
-    """Admin-only CRUD for categories."""
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
 
     def get_queryset(self):
-        # Annotate with listing count for the list view
         return super().get_queryset().annotate(listing_count=Count('listings'))
 
 
 # ---------- Admin Listing Management ----------
 class AdminListingListView(generics.ListAPIView):
-    """Admin endpoint to list all listings with filters."""
     serializer_class = AdminListingListSerializer
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
@@ -52,24 +54,24 @@ class AdminListingListView(generics.ListAPIView):
 
 
 class AdminListingApproveView(generics.GenericAPIView):
-    """Admin endpoint to approve a listing."""
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     queryset = Listing.objects.all()
+    serializer_class = EmptySerializer
 
     def patch(self, request, pk):
         listing = self.get_object()
         listing.status = Listing.Status.VERIFIED
         listing.verified_by = request.user
         listing.verified_at = timezone.now()
-        listing.rejection_reason = None  # clear any previous rejection reason
+        listing.rejection_reason = None
         listing.save()
         return Response({'status': 'approved', 'listing': AdminListingListSerializer(listing).data})
 
 
 class AdminListingRejectView(generics.GenericAPIView):
-    """Admin endpoint to reject a listing with a reason."""
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     queryset = Listing.objects.all()
+    serializer_class = EmptySerializer
 
     def patch(self, request, pk):
         listing = self.get_object()
@@ -83,7 +85,6 @@ class AdminListingRejectView(generics.GenericAPIView):
 
 
 class AdminListingDeleteView(generics.DestroyAPIView):
-    """Admin endpoint to delete a listing."""
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     queryset = Listing.objects.all()
     serializer_class = AdminListingListSerializer
@@ -114,7 +115,6 @@ class ListingViewSet(viewsets.ModelViewSet):
         elif self.action == 'list':
             return ListingListSerializer
         elif self.action == 'retrieve':
-            # Use public detail serializer for non-owners
             if self.request.user.is_authenticated and (self.get_object().seller == self.request.user or self.request.user.role == 'ADMIN'):
                 return ListingSerializer
             return PublicListingDetailSerializer
@@ -140,7 +140,6 @@ class ListingViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['patch'])
     def update_status(self, request, pk=None):
         listing = self.get_object()
-        # Allow seller to resubmit after rejection
         if request.user == listing.seller:
             new_status = request.data.get('status')
             if new_status == 'PENDING' and listing.status == Listing.Status.REJECTED:

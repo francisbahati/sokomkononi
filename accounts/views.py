@@ -1,4 +1,4 @@
-from rest_framework import generics, status, permissions, viewsets
+from rest_framework import generics, status, permissions, viewsets, mixins, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import login, logout, authenticate, get_user_model
@@ -12,15 +12,24 @@ from django_filters.rest_framework import DjangoFilterBackend
 from .serializers import (
     UserRegistrationSerializer, LoginSerializer, UserProfileSerializer,
     UserKYCSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
-    AdminUserListSerializer, AdminUserStatusUpdateSerializer, VerificationRequestSerializer
+    AdminUserListSerializer, AdminUserStatusUpdateSerializer, VerificationRequestSerializer,
+    OTPSendSerializer, OTPVerifySerializer,
+    FavoriteSerializer, FavoriteToggleSerializer
 )
-from .permissions import IsDalali, IsAdmin
+from .permissions import IsDalali, IsAdmin, IsMteja
 from admin_panel.permissions import IsPlatformAdmin
-from .models import User
+from .models import User, OTP, UserFavorite
+from .utils import send_otp
+from listings.models import Listing
 
 User = get_user_model()
 
+# ---------- Dummy serializer for schema ----------
+class EmptySerializer(serializers.Serializer):
+    pass
 
+
+# ---------- Registration & Login ----------
 class RegisterView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
     permission_classes = [permissions.AllowAny]
@@ -164,6 +173,7 @@ class VerificationStatusView(APIView):
         return Response({'status': 'none'})
 
 
+# ---------- Admin user management ----------
 class AdminUserListView(generics.ListAPIView):
     serializer_class = AdminUserListSerializer
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
@@ -177,6 +187,7 @@ class AdminUserListView(generics.ListAPIView):
 class AdminUserVerifyView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     queryset = User.objects.all()
+    serializer_class = EmptySerializer
 
     def patch(self, request, pk):
         user = self.get_object()
@@ -189,6 +200,7 @@ class AdminUserVerifyView(generics.GenericAPIView):
 class AdminUserSuspendView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     queryset = User.objects.all()
+    serializer_class = EmptySerializer
 
     def patch(self, request, pk):
         user = self.get_object()
@@ -200,6 +212,7 @@ class AdminUserSuspendView(generics.GenericAPIView):
 class AdminUserReactivateView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     queryset = User.objects.all()
+    serializer_class = EmptySerializer
 
     def patch(self, request, pk):
         user = self.get_object()
@@ -211,6 +224,7 @@ class AdminUserReactivateView(generics.GenericAPIView):
 class AdminUserBlockView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     queryset = User.objects.all()
+    serializer_class = EmptySerializer
 
     def patch(self, request, pk):
         user = self.get_object()
@@ -225,3 +239,98 @@ class AdminVerificationRequestsView(generics.ListAPIView):
 
     def get_queryset(self):
         return User.objects.filter(role=User.Role.DALALI, is_verified=False).order_by('-created_at')
+
+
+# ---------- OTP Views ----------
+class RequestOTPView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = OTPSendSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        contact = serializer.validated_data['contact']
+        purpose = serializer.validated_data['purpose']
+        user = User.get_by_contact(contact)
+        if not user:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        otp = send_otp(user, purpose, contact)
+        if otp:
+            return Response({'message': f'OTP sent to {contact}'})
+        else:
+            return Response({'error': 'Failed to send OTP'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class VerifyOTPView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = OTPVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        contact = serializer.validated_data['contact']
+        code = serializer.validated_data['code']
+        purpose = serializer.validated_data['purpose']
+        user = User.get_by_contact(contact)
+        if not user:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        otp = OTP.objects.filter(user=user, code=code, purpose=purpose, is_used=False).first()
+        if not otp or not otp.is_valid():
+            return Response({'error': 'Invalid or expired OTP'}, status=status.HTTP_400_BAD_REQUEST)
+
+        otp.is_used = True
+        otp.save()
+
+        if purpose == 'verify':
+            user.email_verified = True
+            user.save()
+            return Response({'message': 'Email verified successfully'})
+
+        if purpose == 'login':
+            login(request, user)
+            return Response({
+                'user': UserProfileSerializer(user).data,
+                'message': 'Login successful'
+            })
+        elif purpose == 'reset':
+            return Response({'message': 'OTP verified. You can now reset your password.'})
+
+        return Response({'message': 'OTP verified'})
+
+
+# ---------- Social Login Callback ----------
+class SocialLoginCallbackView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        if request.user.is_authenticated:
+            return Response({
+                'user': UserProfileSerializer(request.user).data,
+                'message': 'Social login successful'
+            })
+        else:
+            return Response({'error': 'Authentication failed'}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+# ---------- Favorites ----------
+class FavoriteView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsMteja]
+
+    def get(self, request):
+        favorites = UserFavorite.objects.filter(user=request.user)
+        serializer = FavoriteSerializer(favorites, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = FavoriteToggleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        listing_id = serializer.validated_data['listing_id']
+        try:
+            listing = Listing.objects.get(id=listing_id)
+        except Listing.DoesNotExist:
+            return Response({'error': 'Listing not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        favorite, created = UserFavorite.objects.get_or_create(user=request.user, listing=listing)
+        if not created:
+            favorite.delete()
+            return Response({'message': 'Favorite removed'})
+        return Response({'message': 'Favorite added'}, status=status.HTTP_201_CREATED)

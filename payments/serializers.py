@@ -6,6 +6,7 @@ from .models import (
 )
 from deals.serializers import DealRoomSerializer
 from accounts.serializers import UserProfileSerializer
+from admin_panel.serializers import CommissionRuleSerializer  # import from admin_panel
 
 
 class PaymentMethodSerializer(serializers.ModelSerializer):
@@ -64,7 +65,6 @@ class PaymentUpdateSerializer(serializers.ModelSerializer):
         return value
 
 
-# ---------- Admin Transaction List ----------
 class AdminTransactionSerializer(serializers.ModelSerializer):
     ref = serializers.IntegerField(source='id')
     deal_id = serializers.IntegerField(source='deal_room.id')
@@ -77,10 +77,9 @@ class AdminTransactionSerializer(serializers.ModelSerializer):
         fields = ['ref', 'deal_id', 'buyer_name', 'seller_name', 'amount', 'status', 'date']
 
 
-# ---------- Admin Fees (Commission Report) ----------
 class AdminFeeSerializer(serializers.ModelSerializer):
     deal_id = serializers.IntegerField(source='payment.deal_room.id')
-    amount = serializers.DecimalField(max_digits=15, decimal_places=2)  # <-- removed redundant source
+    amount = serializers.DecimalField(max_digits=15, decimal_places=2)
     status = serializers.SerializerMethodField()
     date = serializers.DateTimeField(source='created_at')
 
@@ -94,7 +93,6 @@ class AdminFeeSerializer(serializers.ModelSerializer):
         return 'Pending'
 
 
-# ---------- Payout Serializers ----------
 class PayoutSerializer(serializers.ModelSerializer):
     seller_details = UserProfileSerializer(source='seller', read_only=True)
 
@@ -123,7 +121,6 @@ class AdminPayoutListSerializer(serializers.ModelSerializer):
         fields = ['ref', 'dalali_name', 'amount', 'status', 'date']
 
 
-# ---------- Payout Account ----------
 class PayoutAccountSerializer(serializers.ModelSerializer):
     user_details = UserProfileSerializer(source='user', read_only=True)
 
@@ -142,7 +139,6 @@ class PayoutAccountUpdateSerializer(serializers.ModelSerializer):
         fields = ['method', 'account_number', 'account_holder', 'bank_name']
 
 
-# ---------- Existing serializers (unchanged) ----------
 class CommissionSerializer(serializers.ModelSerializer):
     payment_details = PaymentSerializer(source='payment', read_only=True)
 
@@ -150,13 +146,6 @@ class CommissionSerializer(serializers.ModelSerializer):
         model = Commission
         fields = ['id', 'payment', 'payment_details', 'amount', 'rate', 'is_paid', 'paid_at', 'created_at']
         read_only_fields = ['id', 'created_at']
-
-
-class CommissionRuleSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CommissionRule
-        fields = ['id', 'name', 'rate', 'description', 'is_active', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class TransactionSerializer(serializers.ModelSerializer):

@@ -4,10 +4,13 @@ from .views import (
     ProfileView, SubmitKYCView, ForgotPasswordView, ResetPasswordView,
     VerificationStatusView,
     AdminUserListView, AdminUserVerifyView, AdminUserSuspendView,
-    AdminUserReactivateView, AdminUserBlockView, AdminVerificationRequestsView
+    AdminUserReactivateView, AdminUserBlockView, AdminVerificationRequestsView,
+    RequestOTPView, VerifyOTPView, SocialLoginCallbackView,
+    FavoriteView
 )
 
 urlpatterns = [
+    # Auth
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', LoginView.as_view(), name='login'),
     path('admin-login/', AdminLoginView.as_view(), name='admin-login'),
@@ -26,4 +29,14 @@ urlpatterns = [
     path('admin/users/<int:pk>/reactivate/', AdminUserReactivateView.as_view(), name='admin-user-reactivate'),
     path('admin/users/<int:pk>/block/', AdminUserBlockView.as_view(), name='admin-user-block'),
     path('admin/verification-requests/', AdminVerificationRequestsView.as_view(), name='admin-verification-requests'),
+
+    # OTP
+    path('otp/request/', RequestOTPView.as_view(), name='otp-request'),
+    path('otp/verify/', VerifyOTPView.as_view(), name='otp-verify'),
+
+    # Social login callback (to return JSON after Google OAuth)
+    path('social/callback/', SocialLoginCallbackView.as_view(), name='social-callback'),
+
+    # Favorites
+    path('favorites/', FavoriteView.as_view(), name='favorites'),
 ]

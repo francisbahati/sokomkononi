@@ -1,11 +1,11 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model, authenticate
 from django.contrib.auth.password_validation import validate_password
-from .models import User
+from .models import User, OTP, UserFavorite
 
 User = get_user_model()
 
-
+# ---------- Existing serializers (unchanged) ----------
 class UserRegistrationSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source='username', required=True)
     contact = serializers.CharField(required=True)
@@ -138,3 +138,38 @@ class VerificationRequestSerializer(serializers.ModelSerializer):
                   'is_verified', 'id_card_number', 'id_card_photo', 'created_at']
         read_only_fields = ['id', 'username', 'email', 'phone_number', 'role',
                             'created_at']
+
+
+# ---------- New OTP serializers ----------
+class OTPSendSerializer(serializers.Serializer):
+    contact = serializers.CharField(required=True)
+    purpose = serializers.ChoiceField(choices=OTP.PURPOSE_CHOICES, default='login')
+
+    def validate_contact(self, value):
+        if not User.get_by_contact(value):
+            raise serializers.ValidationError("No user found with this contact.")
+        return value
+
+
+class OTPVerifySerializer(serializers.Serializer):
+    contact = serializers.CharField(required=True)
+    code = serializers.CharField(required=True, min_length=6, max_length=6)
+    purpose = serializers.ChoiceField(choices=OTP.PURPOSE_CHOICES, default='login')
+
+
+# ---------- Favorites serializers ----------
+class FavoriteSerializer(serializers.ModelSerializer):
+    listing_details = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserFavorite
+        fields = ['id', 'user', 'listing', 'listing_details', 'created_at']
+        read_only_fields = ['id', 'user', 'created_at']
+
+    def get_listing_details(self, obj):
+        from listings.serializers import ListingListSerializer
+        return ListingListSerializer(obj.listing, context=self.context).data
+
+
+class FavoriteToggleSerializer(serializers.Serializer):
+    listing_id = serializers.IntegerField(required=True)

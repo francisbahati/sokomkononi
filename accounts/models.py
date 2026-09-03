@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
+from django.utils import timezone
+from django.conf import settings
 
 class User(AbstractUser):
     class Role(models.TextChoices):
@@ -42,6 +44,9 @@ class User(AbstractUser):
     profile_photo = models.ImageField(upload_to='profiles/', blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
 
+    # Email verification flag
+    email_verified = models.BooleanField(default=False)
+
     def __str__(self):
         return f"{self.username} ({self.get_role_display()})"
 
@@ -60,3 +65,38 @@ class User(AbstractUser):
         if user:
             return user
         return cls.objects.filter(email=contact).first()
+
+
+class OTP(models.Model):
+    PURPOSE_CHOICES = [
+        ('login', 'Login'),
+        ('verify', 'Verify Email'),
+        ('reset', 'Reset Password'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='otps')
+    code = models.CharField(max_length=6)
+    purpose = models.CharField(max_length=20, choices=PURPOSE_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+
+    def is_valid(self):
+        return not self.is_used and timezone.now() < self.expires_at
+
+    def __str__(self):
+        return f"OTP for {self.user.email} - {self.purpose}"
+
+
+class UserFavorite(models.Model):
+    """Wishlist / favorites for listings."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='favorites')
+    listing = models.ForeignKey('listings.Listing', on_delete=models.CASCADE, related_name='favorited_by')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'listing')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} fav {self.listing.title}"
