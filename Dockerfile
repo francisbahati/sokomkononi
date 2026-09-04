@@ -22,10 +22,10 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 # Copy the rest of the application
 COPY . .
 
-# Collect static files at build time (optional, but good for production)
+# Collect static files at build time
 RUN python manage.py collectstatic --no-input
 
-# Expose the port your app listens on (3000 matches your command)
+# Expose the port your app listens on
 EXPOSE 3000
 
 # Run migrations, collect static (again, to catch any new files), then start Gunicorn
