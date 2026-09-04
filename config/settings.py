@@ -5,8 +5,10 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# ====== DEBUG = TRUE FOR NOW – SET TO FALSE AFTER TESTING ======
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-dev-key')
-DEBUG = config('DEBUG', default=True, cast=bool)
+DEBUG = True
+
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,0.0.0.0,.dockploy.app,.onrender.com').split(',')
 SECURE_SSL_REDIRECT = False
 
@@ -61,7 +63,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'allauth.account.context_processors.account',
+                # 'allauth.account.context_processors.account',  # <-- REMOVED – FIXED
             ],
         },
     },
@@ -122,6 +124,7 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
+# ====== CORS – read from environment ======
 CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000,http://127.0.0.1:3000').split(',')
 CORS_ALLOW_CREDENTIALS = True
 
@@ -158,21 +161,19 @@ SOCIALACCOUNT_PROVIDERS = {
 LOGIN_REDIRECT_URL = FRONTEND_URL
 ACCOUNT_LOGOUT_REDIRECT_URL = FRONTEND_URL
 
-OTP_EXPIRY_MINUTES = 10
+OTP_EXPIRY_MINUTES = 20
 OTP_LENGTH = 6
 AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default='')
 AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='')
 
 SERVER_URL = config('SERVER_URL', default='https://simumkononiserver-9yxe7h-4d4512-169-58-29-241.sslip.io')
 
+# ================== SPECTACULAR (Swagger) SETTINGS ==================
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Sokomkononi API',
     'DESCRIPTION': 'API documentation for Sokomkononi marketplace',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    'SERVERS': [
-        {'url': SERVER_URL, 'description': 'Current Server'},
-    ],
     'SWAGGER_UI_DIST': 'SIDECAR',
     'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
     'REDOC_DIST': 'SIDECAR',
