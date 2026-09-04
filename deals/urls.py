@@ -7,6 +7,7 @@ from .views import (
     DealActivityViewSet,
     DealActionView,
     MyDealsView,
+    MyCompletedDealsView,
     AdminDealListView,
     OfferViewSet,
 )
@@ -25,6 +26,7 @@ urlpatterns = [
 
     # My Deals
     path('my-deals/', MyDealsView.as_view(), name='my-deals'),
+    path('my-completed-deals/', MyCompletedDealsView.as_view(), name='my-completed-deals'),
 
     # Messages
     path('<int:pk>/messages/', NegotiationMessageViewSet.as_view({'get': 'list', 'post': 'create'}), name='deal-messages'),
@@ -40,13 +42,7 @@ urlpatterns = [
     # Actions
     path('<int:pk>/action/', DealActionView.as_view(), name='deal-action'),
 
-    # Offers (nested under deal room ? we'll add with deal_pk later)
-    # We'll use the router for global offers, but we also need per-deal offers list/create.
-    # Better: we can add nested routes manually.
-]
-
-# Add nested offer routes
-urlpatterns += [
+    # Offers (nested under deal room)
     path('<int:deal_pk>/offers/', OfferViewSet.as_view({'get': 'list', 'post': 'create'}), name='deal-offers'),
     path('offers/<int:pk>/', OfferViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}), name='offer-detail'),
     path('offers/<int:pk>/accept/', OfferViewSet.as_view({'post': 'accept'}), name='offer-accept'),

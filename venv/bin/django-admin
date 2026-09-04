@@ -1,4 +1,4 @@
-#!/home/gacu/StudioProjects/sokomkononi_backend/venv/bin/python
+#!/home/gacu/StudioProjects/sokomkononi_backend/vicho/bin/python
 import sys
 from django.core.management import execute_from_command_line
 if __name__ == '__main__':

@@ -234,7 +234,7 @@ class Content(models.Model):
         verbose_name_plural = 'Content'
 
 
-# ---------- NEW: Subscription Plans ----------
+# ---------- Subscription Plans ----------
 class SubscriptionPlan(models.Model):
     name = models.CharField(max_length=100, unique=True)
     starts = models.DateTimeField(default=timezone.now)
@@ -249,3 +249,24 @@ class SubscriptionPlan(models.Model):
         ordering = ['name']
         verbose_name = 'Subscription Plan'
         verbose_name_plural = 'Subscription Plans'
+
+
+# ---------- NEW: Subscription (tracking user subscriptions) ----------
+class Subscription(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='subscriptions')
+    plan = models.ForeignKey(SubscriptionPlan, on_delete=models.CASCADE)
+    start_date = models.DateTimeField(default=timezone.now)
+    end_date = models.DateTimeField()
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.plan.name}"
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['end_date']),
+        ]

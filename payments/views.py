@@ -3,10 +3,12 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.db.models import Q, Sum, Count
 from django.utils import timezone
+from django.shortcuts import get_object_or_404
 from .models import (
     Payment, PaymentMethod, Commission, CommissionRule,
     Transaction, Escrow, Refund, PaymentLog,
-    Payout, PayoutAccount
+    Payout, PayoutAccount,
+    Wallet, WalletTransaction, WithdrawalRequest
 )
 from .serializers import (
     PaymentSerializer, PaymentCreateSerializer, PaymentUpdateSerializer,
@@ -16,6 +18,9 @@ from .serializers import (
     AdminPayoutListSerializer,
     PayoutSerializer, PayoutCreateSerializer,
     PayoutAccountSerializer, PayoutAccountUpdateSerializer,
+    WalletSerializer, WalletTransactionSerializer,
+    WalletTopUpSerializer, WalletPaySerializer,
+    WithdrawalRequestSerializer, WithdrawalRequestCreateSerializer, WithdrawalRequestActionSerializer,
     CommissionSerializer, TransactionSerializer, EscrowSerializer,
     EscrowUpdateSerializer, RefundSerializer, RefundCreateSerializer, PaymentLogSerializer
 )
@@ -25,6 +30,7 @@ from .permissions import (
     CanProcessPayment
 )
 from admin_panel.permissions import IsPlatformAdmin
+from deals.models import DealRoom
 
 # ---------- Dummy serializer for schema ----------
 class EmptySerializer(serializers.Serializer):
@@ -319,3 +325,125 @@ class PaymentStatisticsView(generics.GenericAPIView):
             'payments_by_method': list(payments_by_method),
             'monthly_revenue': monthly_revenue
         })
+
+
+# ---------- NEW: Wallet Views ----------
+class WalletBalanceView(generics.RetrieveAPIView):
+    serializer_class = WalletSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        wallet, _ = Wallet.objects.get_or_create(user=self.request.user)
+        return wallet
+
+
+class WalletTransactionsView(generics.ListAPIView):
+    serializer_class = WalletTransactionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        wallet, _ = Wallet.objects.get_or_create(user=self.request.user)
+        return WalletTransaction.objects.filter(wallet=wallet).order_by('-created_at')
+
+
+class WalletTopUpView(generics.GenericAPIView):
+    serializer_class = WalletTopUpSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        amount = serializer.validated_data['amount']
+        # In production, integrate with payment gateway; here we simulate success.
+        wallet, _ = Wallet.objects.get_or_create(user=request.user)
+        wallet.deposit(amount)
+        return Response({'status': 'success', 'new_balance': wallet.balance})
+
+
+class WalletPayView(generics.GenericAPIView):
+    serializer_class = WalletPaySerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        deal_id = serializer.validated_data['deal_id']
+        amount = serializer.validated_data['amount']
+        try:
+            deal = DealRoom.objects.get(id=deal_id)
+        except DealRoom.DoesNotExist:
+            return Response({'error': 'Deal not found'}, status=status.HTTP_404_NOT_FOUND)
+        wallet, _ = Wallet.objects.get_or_create(user=request.user)
+        try:
+            wallet.pay(amount, deal)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'status': 'payment successful', 'new_balance': wallet.balance})
+
+
+# ---------- NEW: Withdrawal Requests ----------
+class SellerWithdrawalRequestView(generics.ListCreateAPIView):
+    serializer_class = WithdrawalRequestSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return WithdrawalRequest.objects.filter(seller=self.request.user).order_by('-created_at')
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return WithdrawalRequestCreateSerializer
+        return WithdrawalRequestSerializer
+
+    def perform_create(self, serializer):
+        # Verify sufficient wallet balance
+        wallet = Wallet.objects.get(user=self.request.user)
+        if wallet.balance < serializer.validated_data['amount']:
+            raise serializers.ValidationError("Insufficient wallet balance")
+        serializer.save(seller=self.request.user)
+
+
+class AdminWithdrawalRequestListView(generics.ListAPIView):
+    serializer_class = WithdrawalRequestSerializer
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+    filter_backends = [filters.OrderingFilter, filters.SearchFilter]
+    filterset_fields = ['status']
+
+    def get_queryset(self):
+        return WithdrawalRequest.objects.all().order_by('-created_at')
+
+
+class AdminWithdrawalRequestActionView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
+    serializer_class = WithdrawalRequestActionSerializer
+    queryset = WithdrawalRequest.objects.all()
+
+    def post(self, request, pk):
+        withdrawal = get_object_or_404(WithdrawalRequest, pk=pk)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        action = serializer.validated_data['action']
+        notes = serializer.validated_data.get('notes', '')
+
+        if action == 'approve':
+            # Deduct from wallet and mark processed
+            wallet = Wallet.objects.get(user=withdrawal.seller)
+            if wallet.balance < withdrawal.amount:
+                return Response({'error': 'Insufficient wallet balance'}, status=status.HTTP_400_BAD_REQUEST)
+            wallet.balance -= withdrawal.amount
+            wallet.save()
+            withdrawal.status = WithdrawalRequest.Status.PROCESSED
+            withdrawal.processed_at = timezone.now()
+            # Create a Payout record
+            Payout.objects.create(
+                seller=withdrawal.seller,
+                amount=withdrawal.amount,
+                status='COMPLETED',
+                reference=f"WTH-{withdrawal.id}",
+                completed_at=timezone.now()
+            )
+        elif action == 'reject':
+            withdrawal.status = WithdrawalRequest.Status.REJECTED
+
+        withdrawal.admin_notes = notes
+        withdrawal.save()
+        return Response(WithdrawalRequestSerializer(withdrawal).data)

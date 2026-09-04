@@ -2,7 +2,8 @@ from django.contrib import admin
 from .models import (
     PlatformSettings, CommissionRule, AuditLog, Dispute,
     SystemNotification, AdminActivity,
-    Region, Content
+    Region, Content,
+    SubscriptionPlan, Subscription
 )
 
 
@@ -36,6 +37,7 @@ class DisputeAdmin(admin.ModelAdmin):
     list_filter = ('status', 'created_at', 'resolved_at')
     search_fields = ('raised_by__username', 'deal_room__listing__title', 'description')
     readonly_fields = ('created_at',)
+    list_editable = ('status',)
 
 
 @admin.register(SystemNotification)
@@ -65,3 +67,22 @@ class RegionAdmin(admin.ModelAdmin):
 class ContentAdmin(admin.ModelAdmin):
     list_display = ('content_type', 'updated_at', 'updated_by')
     readonly_fields = ('updated_at',)
+
+
+# ---------- NEW: Subscription Plans and Subscriptions ----------
+@admin.register(SubscriptionPlan)
+class SubscriptionPlanAdmin(admin.ModelAdmin):
+    list_display = ('name', 'starts', 'is_active', 'created_at', 'updated_at')
+    list_filter = ('is_active',)
+    search_fields = ('name',)
+    list_editable = ('is_active',)
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(Subscription)
+class SubscriptionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'plan', 'is_active', 'start_date', 'end_date', 'created_at')
+    list_filter = ('is_active', 'plan')
+    search_fields = ('user__username', 'plan__name')
+    readonly_fields = ('created_at', 'updated_at')
+    ordering = ('-created_at',)

@@ -7,5 +7,4 @@ class AdminPanelConfig(AppConfig):
     verbose_name = 'Platform Administration'
 
     def ready(self):
-        # Import signals if any
         pass

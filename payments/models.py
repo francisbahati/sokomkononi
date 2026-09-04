@@ -302,3 +302,107 @@ class PayoutAccount(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+# ---------- NEW: Wallet (In-App Wallet) ----------
+class Wallet(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='wallet')
+    balance = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.balance}"
+
+    def deposit(self, amount):
+        self.balance += amount
+        self.save()
+        WalletTransaction.objects.create(
+            wallet=self,
+            amount=amount,
+            transaction_type='DEPOSIT',
+            status='COMPLETED',
+            description='Deposit to wallet'
+        )
+
+    def withdraw(self, amount):
+        if self.balance < amount:
+            raise ValueError("Insufficient balance")
+        self.balance -= amount
+        self.save()
+        WalletTransaction.objects.create(
+            wallet=self,
+            amount=amount,
+            transaction_type='WITHDRAWAL',
+            status='COMPLETED',
+            description='Withdrawal from wallet'
+        )
+
+    def pay(self, amount, deal):
+        if self.balance < amount:
+            raise ValueError("Insufficient balance")
+        self.balance -= amount
+        self.save()
+        WalletTransaction.objects.create(
+            wallet=self,
+            amount=amount,
+            transaction_type='PAYMENT',
+            status='COMPLETED',
+            description=f'Payment for deal {deal.id}',
+            deal=deal
+        )
+
+
+class WalletTransaction(models.Model):
+    class Type(models.TextChoices):
+        DEPOSIT = 'DEPOSIT', 'Deposit'
+        WITHDRAWAL = 'WITHDRAWAL', 'Withdrawal'
+        PAYMENT = 'PAYMENT', 'Payment'
+        REFUND = 'REFUND', 'Refund'
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        COMPLETED = 'COMPLETED', 'Completed'
+        FAILED = 'FAILED', 'Failed'
+
+    wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, related_name='transactions')
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    transaction_type = models.CharField(max_length=20, choices=Type.choices)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    description = models.CharField(max_length=255, blank=True, null=True)
+    deal = models.ForeignKey(DealRoom, on_delete=models.SET_NULL, null=True, blank=True)
+    reference = models.CharField(max_length=100, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.get_transaction_type_display()} - {self.amount} - {self.status}"
+
+
+# ---------- NEW: Withdrawal Requests ----------
+class WithdrawalRequest(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        APPROVED = 'APPROVED', 'Approved'
+        REJECTED = 'REJECTED', 'Rejected'
+        PROCESSED = 'PROCESSED', 'Processed'
+
+    class Method(models.TextChoices):
+        M_PESA = 'M_PESA', 'M-Pesa'
+        TIGO_PESA = 'TIGO_PESA', 'Tigo Pesa'
+        AIRTEL_MONEY = 'AIRTEL_MONEY', 'Airtel Money'
+        BANK = 'BANK', 'Bank Transfer'
+        HALOPESA = 'HALOPESA', 'HaloPesa'
+
+    seller = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='withdrawal_requests')
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    method = models.CharField(max_length=20, choices=Method.choices)
+    account_details = models.JSONField(default=dict)  # store phone number or bank details
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    admin_notes = models.TextField(blank=True, null=True)
+    processed_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.seller.username} - {self.amount} - {self.status}"

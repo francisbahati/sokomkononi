@@ -5,7 +5,7 @@ from .models import (
     UserNotification,
     NotificationTemplate,
     NotificationPreference,
-    SystemNotificationSetting,  # new
+    SystemNotificationSetting,
     EmailLog,
     SMSLog,
     PushNotificationLog
@@ -85,7 +85,6 @@ class NotificationPreferenceSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'user', 'created_at', 'updated_at']
 
 
-# New: SystemNotificationSettingSerializer
 class SystemNotificationSettingSerializer(serializers.ModelSerializer):
     class Meta:
         model = SystemNotificationSetting

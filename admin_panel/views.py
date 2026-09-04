@@ -11,21 +11,22 @@ from drf_spectacular.utils import extend_schema, OpenApiResponse
 from .models import (
     PlatformSettings, CommissionRule, AuditLog, Dispute,
     SystemNotification, AdminActivity, Region, Content,
-    SubscriptionPlan
+    SubscriptionPlan, Subscription
 )
 from .serializers import (
     PlatformSettingsSerializer, CommissionRuleSerializer,
     AuditLogSerializer, DisputeSerializer, DisputeUpdateSerializer,
     SystemNotificationSerializer, AdminActivitySerializer,
     RegionSerializer, ContentSerializer, PlatformPaymentMethodSerializer,
-    SubscriptionPlanSerializer, SubscriptionPlanUpdateSerializer
+    SubscriptionPlanSerializer, SubscriptionPlanUpdateSerializer,
+    SellerSubscriptionSerializer, SubscribeSerializer
 )
 from .permissions import IsPlatformAdmin, CanManageDisputes, CanViewAuditLogs
 from accounts.models import User
 from listings.models import Listing
 from deals.models import DealRoom
 from payments.models import Payment, PaymentMethod, Payout
-
+from django.shortcuts import get_object_or_404
 
 # ---------- Dummy serializer for schema ----------
 class EmptySerializer(serializers.Serializer):
@@ -389,7 +390,7 @@ class ContentUpdateView(APIView):
         return Response({'status': 'updated', 'fields': updated})
 
 
-# ---------- Subscription Plans ----------
+# ---------- Subscription Plans (Admin CRUD) ----------
 class SubscriptionPlanListView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated, IsPlatformAdmin]
     queryset = SubscriptionPlan.objects.all()
@@ -427,3 +428,77 @@ class SubscriptionPlanSetStartView(APIView):
         plan.save()
         serializer = SubscriptionPlanSerializer(plan)
         return Response(serializer.data)
+
+
+# ---------- NEW: Subscription endpoints for Sellers ----------
+class PublicSubscriptionPlanListView(generics.ListAPIView):
+    """
+    List all active subscription plans (public for sellers to browse).
+    """
+    permission_classes = [permissions.AllowAny]  # or IsAuthenticated
+    queryset = SubscriptionPlan.objects.filter(is_active=True)
+    serializer_class = SubscriptionPlanSerializer
+
+
+class SellerSubscriptionView(generics.RetrieveAPIView):
+    """
+    Get the current active subscription for the logged-in seller.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = SellerSubscriptionSerializer
+
+    def get_object(self):
+        # Try to get the user's active subscription (assuming only one active at a time)
+        return Subscription.objects.filter(user=self.request.user, is_active=True).first()
+
+
+class SubscribeToPlanView(generics.GenericAPIView):
+    """
+    Subscribe the logged-in seller to a plan.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = SubscribeSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        plan_id = serializer.validated_data['plan_id']
+        try:
+            plan = SubscriptionPlan.objects.get(id=plan_id, is_active=True)
+        except SubscriptionPlan.DoesNotExist:
+            return Response({'error': 'Plan not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Deactivate any existing active subscription
+        Subscription.objects.filter(user=request.user, is_active=True).update(is_active=False)
+
+        # Create new subscription (e.g., valid for 30 days)
+        end_date = timezone.now() + timedelta(days=30)
+        subscription = Subscription.objects.create(
+            user=request.user,
+            plan=plan,
+            end_date=end_date
+        )
+        return Response(SellerSubscriptionSerializer(subscription).data)
+
+
+# ---------- NEW: User-facing Disputes ----------
+class UserDisputeListView(generics.ListAPIView):
+    """
+    List disputes raised by the current user.
+    """
+    serializer_class = DisputeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Dispute.objects.filter(raised_by=self.request.user).order_by('-created_at')
+
+
+class UserDisputeCreateView(generics.CreateAPIView):
+    """
+    Create a new dispute (for buyers/sellers).
+    """
+    serializer_class = DisputeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(raised_by=self.request.user)

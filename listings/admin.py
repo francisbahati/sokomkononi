@@ -4,16 +4,18 @@ from django.urls import reverse
 from django.utils import timezone
 from .models import Category, Listing, ListingImage, SavedSearch, ListingView
 
+
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ('name', 'description', 'listing_count', 'created_at')
     search_fields = ('name', 'description')
     ordering = ('name',)
-    prepopulated_fields = {'slug': ('name',)}  # If you have slug field
-    
+    prepopulated_fields = {'slug': ('name',)}
+
     def listing_count(self, obj):
         return obj.listings.count()
     listing_count.short_description = 'Listings'
+
 
 class ListingImageInline(admin.TabularInline):
     """Inline admin for listing images"""
@@ -21,31 +23,31 @@ class ListingImageInline(admin.TabularInline):
     extra = 3
     fields = ('image', 'caption', 'is_primary', 'order', 'image_preview')
     readonly_fields = ('image_preview', 'created_at')
-    
+
     def image_preview(self, obj):
         if obj.image:
             return format_html('<img src="{}" width="100" height="100" style="object-fit: cover;" />', obj.image.url)
         return "No Image"
     image_preview.short_description = 'Preview'
 
+
 @admin.register(Listing)
 class ListingAdmin(admin.ModelAdmin):
     """Complete admin for Listing model"""
-    
+
     # List view configuration
     list_display = (
-    'listing_id',
-    'title_preview',
-    'seller_info',
-    'price_display',
-    'property_type',
-    'status_badge',
-    'is_featured',          # actual field
-    'is_featured_badge',    # (optional) keep for display
-    'view_count',
-    'created_at'
-)
-    
+        'listing_id',
+        'title_preview',
+        'seller_info',
+        'price_display',
+        'property_type',
+        'status_badge',
+        'is_featured_badge',
+        'view_count',
+        'created_at'
+    )
+
     list_filter = (
         'status',
         'property_type',
@@ -53,7 +55,7 @@ class ListingAdmin(admin.ModelAdmin):
         'created_at',
         'category'
     )
-    
+
     search_fields = (
         'listing_id',
         'title',
@@ -63,16 +65,16 @@ class ListingAdmin(admin.ModelAdmin):
         'seller__email',
         'seller__phone_number'
     )
-    
+
     list_per_page = 20
     ordering = ('-created_at',)
-    
+
     # Fields that can be edited from list view
     list_editable = ('is_featured',)
-    
+
     # Inline images
     inlines = [ListingImageInline]
-    
+
     # Fieldsets for detail page
     fieldsets = (
         ('Basic Information', {
@@ -121,7 +123,7 @@ class ListingAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
-    
+
     readonly_fields = (
         'listing_id',
         'created_at',
@@ -129,18 +131,18 @@ class ListingAdmin(admin.ModelAdmin):
         'verified_at',
         'view_count'
     )
-    
+
     # Custom methods for display
     def title_preview(self, obj):
         """Short preview of title"""
         return obj.title[:50] + '...' if len(obj.title) > 50 else obj.title
     title_preview.short_description = 'Title'
-    
+
     def price_display(self, obj):
         """Display price in TZS"""
         return f"TSh {obj.price:,.2f}"
     price_display.short_description = 'Price'
-    
+
     def seller_info(self, obj):
         """Display seller information with link"""
         url = reverse('admin:accounts_user_change', args=[obj.seller.id])
@@ -150,7 +152,7 @@ class ListingAdmin(admin.ModelAdmin):
             obj.seller.username
         )
     seller_info.short_description = 'Seller'
-    
+
     def status_badge(self, obj):
         """Display status with colored badge"""
         colors = {
@@ -168,7 +170,7 @@ class ListingAdmin(admin.ModelAdmin):
             obj.get_status_display()
         )
     status_badge.short_description = 'Status'
-    
+
     def is_featured_badge(self, obj):
         """Display featured status as badge"""
         if obj.is_featured:
@@ -179,10 +181,10 @@ class ListingAdmin(admin.ModelAdmin):
             '<span style="background-color: #e0e0e0; color: #666; padding: 3px 8px; border-radius: 4px;">Normal</span>'
         )
     is_featured_badge.short_description = 'Featured'
-    
+
     # Admin actions
     actions = ['verify_listings', 'reject_listings', 'mark_as_sold', 'feature_listings']
-    
+
     def verify_listings(self, request, queryset):
         """Admin action to verify listings"""
         updated = queryset.update(
@@ -192,25 +194,25 @@ class ListingAdmin(admin.ModelAdmin):
         )
         self.message_user(request, f'{updated} listings were verified.')
     verify_listings.short_description = 'Verify selected listings'
-    
+
     def reject_listings(self, request, queryset):
         """Admin action to reject listings"""
         updated = queryset.update(status=Listing.Status.REJECTED)
         self.message_user(request, f'{updated} listings were rejected.')
     reject_listings.short_description = 'Reject selected listings'
-    
+
     def mark_as_sold(self, request, queryset):
         """Admin action to mark listings as sold"""
         updated = queryset.update(status=Listing.Status.SOLD)
         self.message_user(request, f'{updated} listings marked as sold.')
     mark_as_sold.short_description = 'Mark as sold'
-    
+
     def feature_listings(self, request, queryset):
         """Admin action to feature listings"""
         updated = queryset.update(is_featured=True)
         self.message_user(request, f'{updated} listings marked as featured.')
     feature_listings.short_description = 'Feature selected listings'
-    
+
     def save_model(self, request, obj, form, change):
         """Custom save with verification tracking"""
         if 'status' in form.changed_data and obj.status == Listing.Status.VERIFIED:
@@ -219,24 +221,27 @@ class ListingAdmin(admin.ModelAdmin):
                 obj.verified_at = timezone.now()
         super().save_model(request, obj, form, change)
 
+
 @admin.register(ListingImage)
 class ListingImageAdmin(admin.ModelAdmin):
     list_display = ('listing', 'image_preview', 'is_primary', 'order', 'created_at')
     list_filter = ('is_primary', 'created_at')
     search_fields = ('listing__title', 'caption')
     readonly_fields = ('created_at',)
-    
+
     def image_preview(self, obj):
         if obj.image:
             return format_html('<img src="{}" width="100" height="100" style="object-fit: cover;" />', obj.image.url)
         return "No Image"
     image_preview.short_description = 'Preview'
 
+
 @admin.register(SavedSearch)
 class SavedSearchAdmin(admin.ModelAdmin):
     list_display = ('user', 'name', 'search_params', 'created_at')
     search_fields = ('user__username', 'name')
     list_filter = ('created_at',)
+
 
 @admin.register(ListingView)
 class ListingViewAdmin(admin.ModelAdmin):

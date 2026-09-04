@@ -31,7 +31,6 @@ class PublicUserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfileSerializer.Meta.model
         fields = ['id', 'username', 'email', 'profile_photo', 'bio', 'is_verified', 'role']
-        # Explicitly omit phone_number
 
 
 class PublicListingDetailSerializer(serializers.ModelSerializer):

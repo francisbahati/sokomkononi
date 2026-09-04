@@ -1,7 +1,6 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
-# Changed: use generic JSONField from django.db.models (no PostgreSQL dependency)
 from django.db.models import JSONField
 
 

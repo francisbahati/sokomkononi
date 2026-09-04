@@ -341,3 +341,21 @@ class MyDealsView(generics.ListAPIView):
             return DealRoom.objects.none()
         user = self.request.user
         return DealRoom.objects.filter(Q(buyer=user) | Q(seller=user)).order_by('-created_at')
+
+
+# ---------- NEW: My Completed Deals (for sellers) ----------
+class MyCompletedDealsView(generics.ListAPIView):
+    """
+    List all completed deals where the current user is the seller.
+    Useful for the seller's "Completed Sales" menu.
+    """
+    serializer_class = DealRoomSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return DealRoom.objects.none()
+        return DealRoom.objects.filter(
+            seller=self.request.user,
+            status=DealRoom.Status.COMPLETED
+        ).order_by('-completed_at')

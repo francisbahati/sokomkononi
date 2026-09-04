@@ -28,6 +28,7 @@ from .serializers import (
 from .permissions import IsNotificationOwner, CanManageNotifications
 from .services import NotificationService
 
+
 # ---------- Dummy serializer for schema ----------
 class EmptySerializer(serializers.Serializer):
     pass

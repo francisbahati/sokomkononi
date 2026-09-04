@@ -7,5 +7,4 @@ class DealsConfig(AppConfig):
     verbose_name = 'Deal Management'
 
     def ready(self):
-        # Import signals to register them – this no longer causes an ImportError
         import deals.signals

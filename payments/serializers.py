@@ -2,7 +2,8 @@ from rest_framework import serializers
 from .models import (
     Payment, PaymentMethod, Commission, CommissionRule,
     Transaction, Escrow, Refund, PaymentLog,
-    Payout, PayoutAccount
+    Payout, PayoutAccount,
+    Wallet, WalletTransaction, WithdrawalRequest
 )
 from deals.serializers import DealRoomSerializer
 from accounts.serializers import UserProfileSerializer
@@ -92,6 +93,7 @@ class AdminFeeSerializer(serializers.ModelSerializer):
         return 'Pending'
 
 
+# ---------- Payout Serializers ----------
 class PayoutSerializer(serializers.ModelSerializer):
     seller_details = UserProfileSerializer(source='seller', read_only=True)
 
@@ -138,6 +140,51 @@ class PayoutAccountUpdateSerializer(serializers.ModelSerializer):
         fields = ['method', 'account_number', 'account_holder', 'bank_name']
 
 
+# ---------- Wallet Serializers ----------
+class WalletSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Wallet
+        fields = ['id', 'balance', 'created_at', 'updated_at']
+
+
+class WalletTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WalletTransaction
+        fields = ['id', 'amount', 'transaction_type', 'status', 'description', 'deal', 'reference', 'created_at']
+
+
+class WalletTopUpSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(max_digits=15, decimal_places=2)
+    payment_method = serializers.CharField()  # e.g., 'M_PESA'
+
+
+class WalletPaySerializer(serializers.Serializer):
+    deal_id = serializers.IntegerField()
+    amount = serializers.DecimalField(max_digits=15, decimal_places=2)
+
+
+# ---------- Withdrawal Request Serializers ----------
+class WithdrawalRequestSerializer(serializers.ModelSerializer):
+    seller_details = UserProfileSerializer(source='seller', read_only=True)
+
+    class Meta:
+        model = WithdrawalRequest
+        fields = ['id', 'seller', 'seller_details', 'amount', 'method', 'account_details', 'status', 'admin_notes', 'processed_at', 'created_at']
+        read_only_fields = ['id', 'seller', 'status', 'processed_at', 'created_at']
+
+
+class WithdrawalRequestCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WithdrawalRequest
+        fields = ['amount', 'method', 'account_details']
+
+
+class WithdrawalRequestActionSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=['approve', 'reject'])
+    notes = serializers.CharField(required=False)
+
+
+# ---------- Existing Commission/Transaction/Escrow/Refund Serializers ----------
 class CommissionSerializer(serializers.ModelSerializer):
     payment_details = PaymentSerializer(source='payment', read_only=True)
 

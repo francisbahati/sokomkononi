@@ -13,6 +13,14 @@ from .views import (
     AdminPayoutListView,
     SellerPayoutListView,
     SellerPayoutAccountView,
+    # NEW:
+    WalletBalanceView,
+    WalletTransactionsView,
+    WalletTopUpView,
+    WalletPayView,
+    SellerWithdrawalRequestView,
+    AdminWithdrawalRequestListView,
+    AdminWithdrawalRequestActionView,
 )
 
 urlpatterns = [
@@ -20,10 +28,21 @@ urlpatterns = [
     path('admin/transactions/', AdminTransactionListView.as_view(), name='admin-transactions'),
     path('admin/fees/', AdminFeeListView.as_view(), name='admin-fees'),
     path('admin/payouts/', AdminPayoutListView.as_view(), name='admin-payouts'),
+    # NEW: Admin withdrawal management
+    path('admin/withdrawal-requests/', AdminWithdrawalRequestListView.as_view(), name='admin-withdrawal-requests'),
+    path('admin/withdrawal-requests/<int:pk>/action/', AdminWithdrawalRequestActionView.as_view(), name='admin-withdrawal-action'),
 
     # ---------- Seller endpoints ----------
     path('seller/payouts/', SellerPayoutListView.as_view(), name='seller-payouts'),
     path('seller/payout-account/', SellerPayoutAccountView.as_view(), name='seller-payout-account'),
+    # NEW: Seller withdrawal requests
+    path('seller/withdrawal-requests/', SellerWithdrawalRequestView.as_view(), name='seller-withdrawal-requests'),
+
+    # ---------- Wallet endpoints ----------
+    path('wallet/balance/', WalletBalanceView.as_view(), name='wallet-balance'),
+    path('wallet/transactions/', WalletTransactionsView.as_view(), name='wallet-transactions'),
+    path('wallet/topup/', WalletTopUpView.as_view(), name='wallet-topup'),
+    path('wallet/pay/', WalletPayView.as_view(), name='wallet-pay'),
 
     # ---------- Existing endpoints ----------
     path('', PaymentViewSet.as_view({'get': 'list', 'post': 'create'}), name='payments-list'),

@@ -15,32 +15,33 @@ import logging
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
+
 class NotificationService:
     """Service for sending notifications"""
-    
+
     @classmethod
     def send_notification(cls, notification):
         """Send a notification to all targeted users"""
         target_users = cls.get_target_users(notification)
-        
+
         for user in target_users:
             user_notif = UserNotification.objects.create(
                 user=user,
                 notification=notification
             )
-            
+
             pref = user.notification_preferences if hasattr(user, 'notification_preferences') else None
-            
+
             if pref and pref.email_enabled:
                 cls.send_email(user, notification)
             if pref and pref.sms_enabled:
                 cls.send_sms(user, notification)
             if pref and pref.push_enabled:
                 cls.send_push(user, notification)
-        
+
         notification.sent_at = timezone.now()
         notification.save()
-    
+
     @classmethod
     def get_target_users(cls, notification):
         users = set()
@@ -49,7 +50,7 @@ class NotificationService:
         for role in notification.target_roles:
             users.update(User.objects.filter(role=role))
         return list(users)
-    
+
     @classmethod
     def send_email(cls, user, notification):
         try:
@@ -76,7 +77,7 @@ class NotificationService:
                 status='FAILED',
                 error_message=str(e)
             )
-    
+
     @classmethod
     def send_sms(cls, user, notification):
         try:
@@ -94,7 +95,7 @@ class NotificationService:
                 status='FAILED',
                 error_message=str(e)
             )
-    
+
     @classmethod
     def send_push(cls, user, notification):
         try:
@@ -114,7 +115,7 @@ class NotificationService:
                 status='FAILED',
                 error_message=str(e)
             )
-    
+
     @classmethod
     def send_notification_to_user(cls, user, notification_type, context):
         try:

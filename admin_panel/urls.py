@@ -18,11 +18,18 @@ from .views import (
     RegionDeleteView,
     ContentListView,
     ContentUpdateView,
-    # Subscription Plans
+    # Subscription Plans (Admin)
     SubscriptionPlanListView,
     SubscriptionPlanDetailView,
     SubscriptionPlanToggleView,
     SubscriptionPlanSetStartView,
+    # NEW: Seller subscription
+    PublicSubscriptionPlanListView,
+    SellerSubscriptionView,
+    SubscribeToPlanView,
+    # NEW: User disputes
+    UserDisputeListView,
+    UserDisputeCreateView,
 )
 
 urlpatterns = [
@@ -47,7 +54,7 @@ urlpatterns = [
     path('admin/audit-logs/', AuditLogViewSet.as_view({'get': 'list'}), name='audit-logs'),
     path('admin/audit-logs/<int:pk>/', AuditLogViewSet.as_view({'get': 'retrieve'}), name='audit-logs-detail'),
 
-    # Disputes
+    # Disputes (Admin)
     path('admin/disputes/', DisputeViewSet.as_view({'get': 'list', 'post': 'create'}), name='disputes'),
     path('admin/disputes/<int:pk>/', DisputeViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update'}), name='disputes-detail'),
     path('admin/disputes/<int:pk>/resolve/', DisputeViewSet.as_view({'post': 'resolve'}), name='dispute-resolve'),
@@ -75,9 +82,18 @@ urlpatterns = [
     path('content/policies/', ContentListView.as_view(), name='content-policies'),
     path('content/policies/', ContentUpdateView.as_view(), name='content-policies-update'),
 
-    # ---------- NEW: Subscription Plans ----------
+    # ---------- Subscription Plans (Admin) ----------
     path('admin/packages/', SubscriptionPlanListView.as_view(), name='subscription-plans-list'),
     path('admin/packages/<int:pk>/', SubscriptionPlanDetailView.as_view(), name='subscription-plans-detail'),
     path('admin/packages/<str:name>/toggle/', SubscriptionPlanToggleView.as_view(), name='subscription-plans-toggle'),
     path('admin/packages/<str:name>/set-start/', SubscriptionPlanSetStartView.as_view(), name='subscription-plans-set-start'),
+
+    # ---------- NEW: Public/Seller Subscription ----------
+    path('packages/', PublicSubscriptionPlanListView.as_view(), name='public-packages'),
+    path('packages/my-subscription/', SellerSubscriptionView.as_view(), name='my-subscription'),
+    path('packages/subscribe/', SubscribeToPlanView.as_view(), name='subscribe-plan'),
+
+    # ---------- NEW: User Disputes ----------
+    path('disputes/my/', UserDisputeListView.as_view(), name='my-disputes'),
+    path('disputes/create/', UserDisputeCreateView.as_view(), name='create-dispute'),
 ]

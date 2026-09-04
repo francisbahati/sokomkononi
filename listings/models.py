@@ -62,7 +62,7 @@ class Listing(models.Model):
 
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     is_featured = models.BooleanField(default=False)
-    rejection_reason = models.TextField(blank=True, null=True)   # <-- NEW
+    rejection_reason = models.TextField(blank=True, null=True)
 
     main_image = models.ImageField(upload_to='listings/main/', blank=True, null=True)
 
